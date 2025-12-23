@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品详情 - 电商数据管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">🛒 电商数据管理系统</h1>
+            <nav class="nav">
+                <a href="index.html">商品列表</a>
+                <a href="cart.html">🛒 购物车</a>
+                <a href="orders.html">📋 我的订单</a>
+                <span id="userNav"></span>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="index.html">首页</a> &gt; <span>商品详情</span>
+            </div>
+
+            <div id="productDetail" class="product-detail-page">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 电商数据管理系统 - Docker期末项目</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script>
+        var urlParams = new URLSearchParams(window.location.search);
+        var productId = urlParams.get('id');
+        var currentProduct = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateUserNav();
+            loadProductDetail();
+        });
+
+        function updateUserNav() {
+            var userNav = document.getElementById('userNav');
+            var user = userStore.getUser();
+            if (user) {
+                userNav.innerHTML = '<span style="color:#fff;margin-right:10px;">👤 ' + user.username + '</span>' +
+                    '<a href="#" onclick="logout()">退出</a>';
+            } else {
+                userNav.innerHTML = '<a href="index.html" onclick="showLoginHint()">🔐 登录</a>';
+            }
+        }
+
+        function showLoginHint() {
+            alert('请在首页点击登录按钮进行登录');
+        }
+
+        function loadProductDetail() {
+            if (!productId) {
+                document.getElementById('productDetail').innerHTML = '<p class="error">未找到商品ID</p>';
+                return;
+            }
+
+            api.getProduct(productId)
+                .then(function(product) {
+                    currentProduct = product;
+                    renderProductDetail(product);
+                })
+                .catch(function(error) {
+                    document.getElementById('productDetail').innerHTML = 
+                        '<p class="error">加载失败：' + error.message + '</p>';
+                });
+        }
+
+        function renderProductDetail(product) {
+            var user = userStore.getUser();
+            var isLoggedIn = !!user;
+            var isAdmin = user && user.role === 'ADMIN';
+
+            var stockStatus = product.stock > 0 ? 
+                '<span class="in-stock">✅ 有货 (' + product.stock + '件)</span>' : 
+                '<span class="out-of-stock">❌ 缺货</span>';
+
+            var html = '<div class="detail-container">' +
+                '<div class="detail-image">' +
+                '<img src="' + (product.imageUrl || '/images/default.jpg') + '" ' +
+                'alt="' + product.name + '" ' +
+                'onerror="this.src=\'/images/default.jpg\'">' +
+                '</div>' +
+                '<div class="detail-info">' +
+                '<h1 class="detail-title">' + product.name + '</h1>' +
+                '<p class="detail-category">' +
+                '<span class="category-tag">' + (product.category || '未分类') + '</span>' +
+                '</p>' +
+                '<p class="detail-price">¥' + product.price.toFixed(2) + '</p>' +
+                '<p class="detail-stock">' + stockStatus + '</p>' +
+                '<div class="detail-description">' +
+                '<h3>商品描述</h3>' +
+                '<p>' + (product.description || '暂无描述') + '</p>' +
+                '</div>' +
+                '<div class="detail-meta">' +
+                '<p>商品ID: ' + product.id + '</p>' +
+                '<p>创建时间: ' + new Date(product.createdAt).toLocaleString('zh-CN') + '</p>' +
+                '<p>更新时间: ' + new Date(product.updatedAt).toLocaleString('zh-CN') + '</p>' +
+                '</div>';
+
+            // 购买数量选择器
+            if (product.stock > 0) {
+                html += '<div class="quantity-selector" style="margin: 20px 0;">' +
+                    '<label style="margin-right:10px;">购买数量：</label>' +
+                    '<button onclick="changeQty(-1)" class="qty-btn">-</button>' +
+                    '<input type="number" id="buyQuantity" value="1" min="1" max="' + product.stock + '" ' +
+                    'style="width:60px;text-align:center;margin:0 10px;padding:8px;">' +
+                    '<button onclick="changeQty(1)" class="qty-btn">+</button>' +
+                    '</div>';
+            }
+
+            html += '<div class="detail-actions">';
+
+            // 已登录且有库存显示购买按钮
+            if (isLoggedIn && product.stock > 0) {
+                html += '<button onclick="addToCart()" class="btn btn-primary">🛒 加入购物车</button>' +
+                    '<button onclick="buyNow()" class="btn btn-secondary">💳 立即购买</button>';
+            } else if (!isLoggedIn) {
+                html += '<p style="color:#e74c3c;margin-bottom:15px;">⚠️ 请先 <a href="index.html">登录</a> 后购买</p>';
+            } else if (product.stock <= 0) {
+                html += '<p style="color:#e74c3c;margin-bottom:15px;">⚠️ 商品暂时缺货</p>';
+            }
+
+            // 管理员显示编辑删除按钮
+            if (isAdmin) {
+                html += '<button onclick="deleteProduct()" class="btn btn-danger">删除商品</button>';
+            }
+
+            html += '<a href="index.html" class="btn btn-secondary">返回列表</a>' +
+                '</div></div></div>';
+
+            document.getElementById('productDetail').innerHTML = html;
+        }
+
+        function changeQty(delta) {
+            var input = document.getElementById('buyQuantity');
+            if (!input) return;
+            var qty = parseInt(input.value) + delta;
+            qty = Math.max(1, Math.min(qty, currentProduct.stock));
+            input.value = qty;
+        }
+
+        function addToCart() {
+            var user = userStore.getUser();
+            if (!user) {
+                alert('请先登录！');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            var quantity = parseInt(document.getElementById('buyQuantity').value);
+            
+            api.addToCart(user.id, currentProduct.id, quantity)
+                .then(function() {
+                    alert('✅ 已添加到购物车！');
+                })
+                .catch(function(error) {
+                    alert('❌ ' + error.message);
+                });
+        }
+
+        function buyNow() {
+            var user = userStore.getUser();
+            if (!user) {
+                alert('请先登录！');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            var quantity = parseInt(document.getElementById('buyQuantity').value);
+            var address = prompt('请输入收货地址：');
+            if (!address) return;
+
+            api.createOrder({
+                userId: user.id,
+                shippingAddress: address,
+                items: [{ productId: currentProduct.id, quantity: quantity }]
+            })
+            .then(function(order) {
+                alert('✅ 订单创建成功！\n订单号：' + order.orderNo);
+                window.location.href = 'orders.html';
+            })
+            .catch(function(error) {
+                alert('❌ ' + error.message);
+            });
+        }
+
+        function deleteProduct() {
+            if (!confirm('确定要删除这个商品吗？')) return;
+            
+            api.deleteProduct(currentProduct.id)
+                .then(function() {
+                    alert('✅ 删除成功！');
+                    window.location.href = 'index.html';
+                })
+                .catch(function(error) {
+                    alert('❌ 删除失败：' + error.message);
+                });
+        }
+
+        function logout() {
+            userStore.clearUser();
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

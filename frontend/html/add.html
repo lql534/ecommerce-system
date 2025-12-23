@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加商品 - 电商数据管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">🛒 电商数据管理系统</h1>
+            <nav class="nav">
+                <a href="index.html">商品列表</a>
+                <a href="add.html" class="active">添加商品</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <div class="form-container">
+                <h2>添加新商品</h2>
+                <form id="addProductForm" onsubmit="createProduct(event)">
+                    <div class="form-group">
+                        <label for="name">商品名称 <span class="required">*</span></label>
+                        <input type="text" id="name" name="name" required placeholder="请输入商品名称">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">商品描述</label>
+                        <textarea id="description" name="description" rows="4" placeholder="请输入商品描述"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="price">价格 <span class="required">*</span></label>
+                            <input type="number" id="price" name="price" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="stock">库存数量 <span class="required">*</span></label>
+                            <input type="number" id="stock" name="stock" min="0" required placeholder="0">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category">商品分类 <span class="required">*</span></label>
+                        <select id="category" name="category" required>
+                            <option value="">请选择分类</option>
+                            <option value="电子产品">电子产品</option>
+                            <option value="服装">服装</option>
+                            <option value="食品">食品</option>
+                            <option value="家居">家居</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="imageUrl">商品图片URL</label>
+                        <input type="url" id="imageUrl" name="imageUrl" placeholder="https://example.com/image.jpg">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">添加商品</button>
+                        <button type="reset" class="btn btn-secondary">重置</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 电商数据管理系统 - Docker期末项目</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script>
+        async function createProduct(event) {
+            event.preventDefault();
+            
+            const product = {
+                name: document.getElementById('name').value,
+                description: document.getElementById('description').value,
+                price: parseFloat(document.getElementById('price').value),
+                stock: parseInt(document.getElementById('stock').value),
+                category: document.getElementById('category').value,
+                imageUrl: document.getElementById('imageUrl').value || null
+            };
+
+            try {
+                const result = await api.createProduct(product);
+                alert('商品添加成功！');
+                window.location.href = 'index.html';
+            } catch (error) {
+                alert('添加失败：' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+// ============================================
+// Jenkins Pipeline - 电商数据管理系统 CI/CD
+// ============================================
+
+pipeline {
+    agent any
+
+    environment {
+        // Docker镜像仓库配置
+        REGISTRY_URL = 'localhost:5000'
+        IMAGE_PREFIX = 'ecommerce-system'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        
+        // 数据库配置
+        MYSQL_ROOT_PASSWORD = credentials('mysql-root-password')
+        MYSQL_USER = 'ecommerce_user'
+        MYSQL_PASSWORD = credentials('mysql-password')
+        
+        // Docker Compose项目名
+        COMPOSE_PROJECT_NAME = 'ecommerce'
+    }
+
+    options {
+        // 构建超时时间
+        timeout(time: 30, unit: 'MINUTES')
+        // 保留构建历史
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        // 禁止并发构建
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        // ==================== 代码检出 ====================
+        stage('Checkout') {
+            steps {
+                echo '📥 检出代码...'
+                checkout scm
+            }
+        }
+
+        // ==================== 代码质量检查 ====================
+        stage('Code Quality') {
+            steps {
+                echo '🔍 代码质量检查...'
+                dir('backend') {
+                    sh 'mvn checkstyle:check -q || true'
+                }
+            }
+        }
+
+        // ==================== 单元测试 ====================
+        stage('Unit Tests') {
+            steps {
+                echo '🧪 运行单元测试...'
+                dir('backend') {
+                    sh 'mvn test -B'
+                }
+            }
+            post {
+                always {
+                    // 发布测试报告
+                    junit allowEmptyResults: true, testResults: 'backend/target/surefire-reports/*.xml'
+                    // 发布代码覆盖率报告
+                    jacoco(
+                        execPattern: 'backend/target/jacoco.exec',
+                        classPattern: 'backend/target/classes',
+                        sourcePattern: 'backend/src/main/java',
+                        exclusionPattern: 'backend/src/test*'
+                    )
+                }
+            }
+        }
+
+        // ==================== 构建应用 ====================
+        stage('Build Application') {
+            steps {
+                echo '🔨 构建应用...'
+                dir('backend') {
+                    sh 'mvn clean package -DskipTests -B'
+                }
+            }
+        }
+
+        // ==================== 构建Docker镜像 ====================
+        stage('Build Docker Images') {
+            parallel {
+                stage('Build Frontend Image') {
+                    steps {
+                        echo '🐳 构建前端镜像...'
+                        dir('frontend') {
+                            sh """
+                                docker build -t ${REGISTRY_URL}/${IMAGE_PREFIX}-frontend:${IMAGE_TAG} .
+                                docker tag ${REGISTRY_URL}/${IMAGE_PREFIX}-frontend:${IMAGE_TAG} ${REGISTRY_URL}/${IMAGE_PREFIX}-frontend:latest
+                            """
+                        }
+                    }
+                }
+                stage('Build Backend Image') {
+                    steps {
+                        echo '🐳 构建后端镜像...'
+                        dir('backend') {
+                            sh """
+                                docker build -t ${REGISTRY_URL}/${IMAGE_PREFIX}-backend:${IMAGE_TAG} .
+                                docker tag ${REGISTRY_URL}/${IMAGE_PREFIX}-backend:${IMAGE_TAG} ${REGISTRY_URL}/${IMAGE_PREFIX}-backend:latest
+                            """
+                        }
+                    }
+                }
+                stage('Build MySQL Image') {
+                    steps {
+                        echo '🐳 构建数据库镜像...'
+                        dir('database') {
+                            sh """
+                                docker build -t ${REGISTRY_URL}/${IMAGE_PREFIX}-mysql:${IMAGE_TAG} .
+                                docker tag ${REGISTRY_URL}/${IMAGE_PREFIX}-mysql:${IMAGE_TAG} ${REGISTRY_URL}/${IMAGE_PREFIX}-mysql:latest
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==================== 推送镜像到仓库 ====================
+        stage('Push Images') {
+            steps {
+                echo '📤 推送镜像到仓库...'
+                sh """
+                    docker push ${REGISTRY_URL}/${IMAGE_PREFIX}-frontend:${IMAGE_TAG}
+                    docker push ${REGISTRY_URL}/${IMAGE_PREFIX}-frontend:latest
+                    docker push ${REGISTRY_URL}/${IMAGE_PREFIX}-backend:${IMAGE_TAG}
+                    docker push ${REGISTRY_URL}/${IMAGE_PREFIX}-backend:latest
+                    docker push ${REGISTRY_URL}/${IMAGE_PREFIX}-mysql:${IMAGE_TAG}
+                    docker push ${REGISTRY_URL}/${IMAGE_PREFIX}-mysql:latest
+                """
+            }
+        }
+
+        // ==================== 集成测试 ====================
+        stage('Integration Tests') {
+            steps {
+                echo '🔗 运行集成测试...'
+                sh """
+                    # 启动测试环境
+                    docker compose -f docker-compose.yml up -d
+                    
+                    # 等待服务启动
+                    sleep 60
+                    
+                    # 健康检查
+                    curl -f http://localhost:8080/actuator/health || exit 1
+                    curl -f http://localhost:80/health || exit 1
+                    
+                    # API测试
+                    curl -f http://localhost:8080/api/products || exit 1
+                """
+            }
+            post {
+                always {
+                    sh 'docker compose -f docker-compose.yml down -v || true'
+                }
+            }
+        }
+
+        // ==================== 部署到生产环境 ====================
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo '🚀 部署到生产环境...'
+                input message: '确认部署到生产环境?', ok: '部署'
+                sh """
+                    docker compose -f docker-compose.yml pull
+                    docker compose -f docker-compose.yml up -d --force-recreate
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ 构建成功!'
+            // 可以添加通知，如邮件、钉钉等
+        }
+        failure {
+            echo '❌ 构建失败!'
+            // 可以添加失败通知
+        }
+        always {
+            // 清理工作空间
+            cleanWs()
+        }
+    }
+}

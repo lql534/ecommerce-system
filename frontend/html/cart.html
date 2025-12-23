@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>购物车 - 电商数据管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">🛒 电商数据管理系统</h1>
+            <nav class="nav">
+                <a href="index.html">商品列表</a>
+                <a href="cart.html" class="active">🛒 购物车</a>
+                <a href="orders.html">📋 我的订单</a>
+                <span id="userNav"></span>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <h2 style="margin-bottom: 20px;">🛒 我的购物车</h2>
+            <div id="cartContent">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 结算模态框 -->
+    <div id="checkoutModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close" onclick="closeCheckoutModal()">&times;</span>
+            <h2>📦 确认订单</h2>
+            <form id="checkoutForm" onsubmit="submitOrder(event)">
+                <div class="form-group">
+                    <label>收货地址 <span class="required">*</span></label>
+                    <textarea id="shippingAddress" rows="3" required placeholder="请输入详细收货地址"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>备注</label>
+                    <textarea id="orderRemark" rows="2" placeholder="订单备注（可选）"></textarea>
+                </div>
+                <div id="orderSummary" style="background:#f5f5f5;padding:15px;border-radius:8px;margin-bottom:20px;"></div>
+                <button type="submit" class="btn btn-primary" style="width:100%">✅ 提交订单</button>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 电商数据管理系统 - Docker期末项目</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script>
+        var cartItems = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateUserNav();
+            loadCart();
+        });
+
+        function updateUserNav() {
+            var userNav = document.getElementById('userNav');
+            var user = userStore.getUser();
+            if (user) {
+                userNav.innerHTML = '<span style="color:#fff;margin-right:10px;">👤 ' + user.username + '</span>' +
+                    '<a href="#" onclick="logout()">退出</a>';
+            } else {
+                userNav.innerHTML = '<a href="index.html">请先登录</a>';
+            }
+        }
+
+        function loadCart() {
+            var user = userStore.getUser();
+            if (!user) {
+                document.getElementById('cartContent').innerHTML = 
+                    '<div class="empty-state">' +
+                    '<p>请先 <a href="index.html">登录</a> 后查看购物车</p>' +
+                    '</div>';
+                return;
+            }
+
+            api.getCart(user.id)
+                .then(function(items) {
+                    cartItems = items;
+                    renderCart();
+                })
+                .catch(function(error) {
+                    document.getElementById('cartContent').innerHTML = 
+                        '<div class="error">加载失败: ' + error.message + '</div>';
+                });
+        }
+
+        function renderCart() {
+            var container = document.getElementById('cartContent');
+            
+            if (cartItems.length === 0) {
+                container.innerHTML = 
+                    '<div class="empty-state">' +
+                    '<p>🛒 购物车是空的</p>' +
+                    '<a href="index.html" class="btn btn-primary">去购物</a>' +
+                    '</div>';
+                return;
+            }
+
+            var totalAmount = 0;
+            var itemsHtml = '';
+            
+            cartItems.forEach(function(item) {
+                var subtotal = item.product.price * item.quantity;
+                totalAmount += subtotal;
+                
+                itemsHtml += '<div class="cart-item">' +
+                    '<img src="' + (item.product.imageUrl || '/images/default.jpg') + '" ' +
+                    'alt="' + item.product.name + '" class="cart-item-image" ' +
+                    'onerror="this.src=\'/images/default.jpg\'">' +
+                    '<div class="cart-item-info">' +
+                    '<h3>' + item.product.name + '</h3>' +
+                    '<p class="cart-item-price">¥' + item.product.price.toFixed(2) + '</p>' +
+                    '<p class="cart-item-stock">库存: ' + item.product.stock + '</p>' +
+                    '</div>' +
+                    '<div class="cart-item-quantity">' +
+                    '<button onclick="updateQuantity(' + item.product.id + ', ' + (item.quantity - 1) + ')" ' +
+                    'class="qty-btn"' + (item.quantity <= 1 ? ' disabled' : '') + '>-</button>' +
+                    '<span class="qty-value">' + item.quantity + '</span>' +
+                    '<button onclick="updateQuantity(' + item.product.id + ', ' + (item.quantity + 1) + ')" ' +
+                    'class="qty-btn"' + (item.quantity >= item.product.stock ? ' disabled' : '') + '>+</button>' +
+                    '</div>' +
+                    '<div class="cart-item-subtotal">' +
+                    '<p>¥' + subtotal.toFixed(2) + '</p>' +
+                    '</div>' +
+                    '<button onclick="removeItem(' + item.product.id + ')" class="btn btn-danger btn-sm">删除</button>' +
+                    '</div>';
+            });
+
+            container.innerHTML = 
+                '<div class="cart-list">' + itemsHtml + '</div>' +
+                '<div class="cart-footer">' +
+                '<div class="cart-total">' +
+                '<span>共 ' + cartItems.length + ' 种商品，合计：</span>' +
+                '<span class="total-amount">¥' + totalAmount.toFixed(2) + '</span>' +
+                '</div>' +
+                '<div class="cart-actions">' +
+                '<button onclick="clearCart()" class="btn btn-secondary">清空购物车</button>' +
+                '<button onclick="openCheckout()" class="btn btn-primary">💳 去结算</button>' +
+                '</div>' +
+                '</div>';
+        }
+
+        function updateQuantity(productId, quantity) {
+            var user = userStore.getUser();
+            
+            var promise;
+            if (quantity <= 0) {
+                promise = api.removeFromCart(user.id, productId);
+            } else {
+                promise = api.updateCartItem(user.id, productId, quantity);
+            }
+            
+            promise.then(function() {
+                loadCart();
+            }).catch(function(error) {
+                alert('❌ ' + error.message);
+            });
+        }
+
+        function removeItem(productId) {
+            if (!confirm('确定要移除这个商品吗？')) return;
+            var user = userStore.getUser();
+            
+            api.removeFromCart(user.id, productId)
+                .then(function() {
+                    loadCart();
+                })
+                .catch(function(error) {
+                    alert('❌ ' + error.message);
+                });
+        }
+
+        function clearCart() {
+            if (!confirm('确定要清空购物车吗？')) return;
+            var user = userStore.getUser();
+            
+            api.clearCart(user.id)
+                .then(function() {
+                    loadCart();
+                })
+                .catch(function(error) {
+                    alert('❌ ' + error.message);
+                });
+        }
+
+        function openCheckout() {
+            if (cartItems.length === 0) {
+                alert('购物车是空的');
+                return;
+            }
+
+            var totalAmount = 0;
+            var summaryHtml = '';
+            
+            cartItems.forEach(function(item) {
+                var subtotal = item.product.price * item.quantity;
+                totalAmount += subtotal;
+                summaryHtml += '<p>' + item.product.name + ' x ' + item.quantity + ' = ¥' + subtotal.toFixed(2) + '</p>';
+            });
+
+            document.getElementById('orderSummary').innerHTML = summaryHtml +
+                '<hr style="margin:10px 0;">' +
+                '<p style="font-weight:bold;font-size:18px;color:#e74c3c;">总计：¥' + totalAmount.toFixed(2) + '</p>';
+
+            document.getElementById('checkoutModal').classList.add('show');
+        }
+
+        function closeCheckoutModal() {
+            document.getElementById('checkoutModal').classList.remove('show');
+        }
+
+        function submitOrder(event) {
+            event.preventDefault();
+            var user = userStore.getUser();
+            
+            var orderData = {
+                userId: user.id,
+                shippingAddress: document.getElementById('shippingAddress').value,
+                remark: document.getElementById('orderRemark').value
+            };
+
+            api.createOrder(orderData)
+                .then(function(order) {
+                    alert('✅ 订单创建成功！\n订单号：' + order.orderNo);
+                    closeCheckoutModal();
+                    window.location.href = 'orders.html';
+                })
+                .catch(function(error) {
+                    alert('❌ ' + error.message);
+                });
+        }
+
+        function logout() {
+            userStore.clearUser();
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

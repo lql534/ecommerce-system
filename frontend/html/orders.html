@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的订单 - 电商数据管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">🛒 电商数据管理系统</h1>
+            <nav class="nav">
+                <a href="index.html">商品列表</a>
+                <a href="cart.html">🛒 购物车</a>
+                <a href="orders.html" class="active">📋 我的订单</a>
+                <span id="userNav"></span>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <h2 style="margin-bottom: 20px;">📋 我的订单</h2>
+            
+            <div class="toolbar">
+                <select id="statusFilter" class="filter-select" onchange="loadOrders()">
+                    <option value="">全部状态</option>
+                    <option value="PENDING">待付款</option>
+                    <option value="PAID">已付款</option>
+                    <option value="SHIPPED">已发货</option>
+                    <option value="DELIVERED">已送达</option>
+                    <option value="CANCELLED">已取消</option>
+                </select>
+            </div>
+
+            <div id="orderList">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 订单详情模态框 -->
+    <div id="orderDetailModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close" onclick="closeOrderDetail()">&times;</span>
+            <div id="orderDetailContent"></div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 电商数据管理系统 - Docker期末项目</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script>
+        var statusMap = {
+            'PENDING': { text: '⏳ 待付款', className: 'status-pending' },
+            'PAID': { text: '✅ 已付款', className: 'status-paid' },
+            'SHIPPED': { text: '🚚 已发货', className: 'status-shipped' },
+            'DELIVERED': { text: '📦 已送达', className: 'status-delivered' },
+            'CANCELLED': { text: '❌ 已取消', className: 'status-cancelled' }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateUserNav();
+            loadOrders();
+        });
+
+        function updateUserNav() {
+            var userNav = document.getElementById('userNav');
+            var user = userStore.getUser();
+            if (user) {
+                userNav.innerHTML = '<span style="color:#fff;margin-right:10px;">👤 ' + user.username + '</span>' +
+                    '<a href="#" onclick="logout()">退出</a>';
+            } else {
+                userNav.innerHTML = '<a href="index.html">请先登录</a>';
+            }
+        }
+
+        function loadOrders() {
+            var user = userStore.getUser();
+            if (!user) {
+                document.getElementById('orderList').innerHTML = 
+                    '<div class="empty-state">' +
+                    '<p>请先 <a href="index.html">登录</a> 后查看订单</p>' +
+                    '</div>';
+                return;
+            }
+
+            api.getUserOrders(user.id)
+                .then(function(orders) {
+                    var statusFilter = document.getElementById('statusFilter').value;
+                    
+                    var filteredOrders = orders;
+                    if (statusFilter) {
+                        filteredOrders = orders.filter(function(o) {
+                            return o.status === statusFilter;
+                        });
+                    }
+                    
+                    renderOrders(filteredOrders);
+                })
+                .catch(function(error) {
+                    document.getElementById('orderList').innerHTML = 
+                        '<div class="error">加载失败: ' + error.message + '</div>';
+                });
+        }
+
+        function renderOrders(orders) {
+            var container = document.getElementById('orderList');
+            
+            if (orders.length === 0) {
+                container.innerHTML = 
+                    '<div class="empty-state">' +
+                    '<p>📋 暂无订单</p>' +
+                    '<a href="index.html" class="btn btn-primary">去购物</a>' +
+                    '</div>';
+                return;
+            }
+
+            var html = '';
+            orders.forEach(function(order) {
+                var status = statusMap[order.status] || { text: order.status, className: '' };
+                
+                html += '<div class="order-card">' +
+                    '<div class="order-header">' +
+                    '<span class="order-no">订单号：' + order.orderNo + '</span>' +
+                    '<span class="order-status ' + status.className + '">' + status.text + '</span>' +
+                    '</div>' +
+                    '<div class="order-info">' +
+                    '<p>下单时间：' + formatDate(order.createdAt) + '</p>' +
+                    '<p>订单金额：<span class="order-amount">¥' + order.totalAmount.toFixed(2) + '</span></p>' +
+                    (order.shippingAddress ? '<p>收货地址：' + order.shippingAddress + '</p>' : '') +
+                    '</div>' +
+                    '<div class="order-actions">' +
+                    '<button onclick="viewOrderDetail(' + order.id + ')" class="btn btn-primary btn-sm">查看详情</button>';
+                
+                if (order.status === 'PENDING') {
+                    html += '<button onclick="payOrder(' + order.id + ')" class="btn btn-secondary btn-sm">💳 立即支付</button>' +
+                        '<button onclick="cancelOrder(' + order.id + ')" class="btn btn-danger btn-sm">取消订单</button>';
+                }
+                
+                if (order.status === 'SHIPPED') {
+                    html += '<button onclick="confirmDelivery(' + order.id + ')" class="btn btn-secondary btn-sm">📦 确认收货</button>';
+                }
+                
+                html += '</div></div>';
+            });
+
+            container.innerHTML = html;
+        }
+
+        function viewOrderDetail(orderId) {
+            api.getOrder(orderId)
+                .then(function(order) {
+                    var status = statusMap[order.status] || { text: order.status, className: '' };
+                    
+                    var itemsHtml = '';
+                    if (order.items && order.items.length > 0) {
+                        order.items.forEach(function(item) {
+                            itemsHtml += '<div class="order-item">' +
+                                '<span>' + item.productName + '</span>' +
+                                '<span>¥' + item.productPrice.toFixed(2) + ' x ' + item.quantity + '</span>' +
+                                '<span>¥' + item.subtotal.toFixed(2) + '</span>' +
+                                '</div>';
+                        });
+                    }
+
+                    document.getElementById('orderDetailContent').innerHTML = 
+                        '<h2>📋 订单详情</h2>' +
+                        '<div class="order-detail">' +
+                        '<p><strong>订单号：</strong>' + order.orderNo + '</p>' +
+                        '<p><strong>状态：</strong><span class="' + status.className + '">' + status.text + '</span></p>' +
+                        '<p><strong>下单时间：</strong>' + formatDate(order.createdAt) + '</p>' +
+                        (order.paidAt ? '<p><strong>支付时间：</strong>' + formatDate(order.paidAt) + '</p>' : '') +
+                        (order.shippedAt ? '<p><strong>发货时间：</strong>' + formatDate(order.shippedAt) + '</p>' : '') +
+                        (order.deliveredAt ? '<p><strong>送达时间：</strong>' + formatDate(order.deliveredAt) + '</p>' : '') +
+                        '<p><strong>收货地址：</strong>' + (order.shippingAddress || '无') + '</p>' +
+                        (order.remark ? '<p><strong>备注：</strong>' + order.remark + '</p>' : '') +
+                        '<h3 style="margin-top:20px;">商品明细</h3>' +
+                        '<div class="order-items-list">' + itemsHtml + '</div>' +
+                        '<div class="order-total">' +
+                        '<strong>订单总额：¥' + order.totalAmount.toFixed(2) + '</strong>' +
+                        '</div>' +
+                        '</div>';
+                    
+                    document.getElementById('orderDetailModal').classList.add('show');
+                })
+                .catch(function(error) {
+                    alert('获取订单详情失败: ' + error.message);
+                });
+        }
+
+        function closeOrderDetail() {
+            document.getElementById('orderDetailModal').classList.remove('show');
+        }
+
+        function payOrder(orderId) {
+            if (!confirm('确认支付此订单？')) return;
+            
+            api.payOrder(orderId)
+                .then(function() {
+                    alert('✅ 支付成功！');
+                    loadOrders();
+                })
+                .catch(function(error) {
+                    alert('❌ ' + error.message);
+                });
+        }
+
+        function cancelOrder(orderId) {
+            if (!confirm('确定要取消此订单吗？')) return;
+            
+            api.cancelOrder(orderId)
+                .then(function() {
+                    alert('✅ 订单已取消');
+                    loadOrders();
+                })
+                .catch(function(error) {
+                    alert('❌ ' + error.message);
+                });
+        }
+
+        function confirmDelivery(orderId) {
+            if (!confirm('确认已收到商品？')) return;
+            
+            api.deliverOrder(orderId)
+                .then(function() {
+                    alert('✅ 已确认收货');
+                    loadOrders();
+                })
+                .catch(function(error) {
+                    alert('❌ ' + error.message);
+                });
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            var date = new Date(dateStr);
+            return date.toLocaleString('zh-CN');
+        }
+
+        function logout() {
+            userStore.clearUser();
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

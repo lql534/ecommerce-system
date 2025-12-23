@@ -1,0 +1,41 @@
+version: '3.8'
+
+# Jenkins CI/CD 环境配置
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    container_name: jenkins
+    restart: unless-stopped
+    privileged: true
+    user: root
+    ports:
+      - "8082:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    networks:
+      - jenkins-network
+
+  # 私有镜像仓库
+  registry:
+    image: registry:2
+    container_name: registry
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry_data:/var/lib/registry
+    networks:
+      - jenkins-network
+
+networks:
+  jenkins-network:
+    driver: bridge
+
+volumes:
+  jenkins_home:
+  registry_data:
