@@ -60,13 +60,6 @@ pipeline {
                 always {
                     // 发布测试报告
                     junit allowEmptyResults: true, testResults: 'backend/target/surefire-reports/*.xml'
-                    // 发布代码覆盖率报告
-                    jacoco(
-                        execPattern: 'backend/target/jacoco.exec',
-                        classPattern: 'backend/target/classes',
-                        sourcePattern: 'backend/src/main/java',
-                        exclusionPattern: 'backend/src/test*'
-                    )
                 }
             }
         }
