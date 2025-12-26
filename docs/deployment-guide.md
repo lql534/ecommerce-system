@@ -144,11 +144,11 @@ docker compose up -d phpmyadmin
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| 前端页面 | http://192.168.58.129:80 | 商城首页 |
-| 后端API | http://192.168.58.129:8080/api | RESTful接口 |
-| phpMyAdmin | http://192.168.58.129:8081 | 数据库管理 |
-| Jenkins | http://192.168.58.129:8082 | CI/CD控制台 |
-| Registry | http://192.168.58.129:5000 | 私有镜像仓库 |
+| 前端页面 | http://192.168.19.129:80 | 商城首页 |
+| 后端API | http://192.168.19.129:8080/api | RESTful接口 |
+| phpMyAdmin | http://192.168.19.129:8081 | 数据库管理 |
+| Jenkins | http://192.168.19.129:8082 | CI/CD控制台 |
+| Registry | http://192.168.19.129:5000 | 私有镜像仓库 |
 
 ## 五、测试账号
 
@@ -229,7 +229,7 @@ docker compose -f docker-compose.jenkins.yml up -d
 ```
 
 ### 7.2 访问Jenkins
-1. 打开浏览器访问 http://192.168.58.129:8082
+1. 打开浏览器访问 http://192.168.19.129:8082
 2. 创建Pipeline任务
 3. 配置Pipeline脚本
 4. 点击Build Now执行构建
@@ -290,8 +290,8 @@ docker compose -f docker-compose.monitoring.yml up -d
 ### 9.2 访问监控
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| Prometheus | http://192.168.58.129:9090 | 指标采集 |
-| Grafana | http://192.168.58.129:3000 | 可视化面板 |
+| Prometheus | http://192.168.19.129:9090 | 指标采集 |
+| Grafana | http://192.168.19.129:3000 | 可视化面板 |
 
 ### 9.3 Grafana默认账号
 - 用户名: admin
