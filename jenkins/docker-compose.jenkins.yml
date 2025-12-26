@@ -1,6 +1,8 @@
 version: '3.8'
 
 # Jenkins CI/CD 环境配置
+# 镜像仓库使用Harbor (192.168.19.129:8083)
+
 services:
   jenkins:
     image: jenkins/jenkins:lts-jdk21
@@ -15,21 +17,9 @@ services:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker
-      - /root/ecommerce/ecommerce-system:/var/jenkins_home/workspace/ecommerce-source:ro
+      - /root/ecommerce-system:/var/jenkins_home/workspace/ecommerce-source
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
-    networks:
-      - jenkins-network
-
-  # 私有镜像仓库
-  registry:
-    image: registry:2
-    container_name: registry
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    volumes:
-      - registry_data:/var/lib/registry
     networks:
       - jenkins-network
 
@@ -39,4 +29,3 @@ networks:
 
 volumes:
   jenkins_home:
-  registry_data:
