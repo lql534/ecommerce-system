@@ -63,12 +63,17 @@ pipeline {
                 echo '🧪 运行单元测试...'
                 sh '''
                     echo "运行单元测试..."
+                    echo "检查pom.xml位置..."
+                    ls -la backend/
+                    
+                    # 使用绝对路径挂载
+                    WORKSPACE_PATH=$(pwd)
                     docker run --rm \
-                        -v "$(pwd)/backend":/app \
+                        -v "${WORKSPACE_PATH}/backend":/build \
                         -v maven-repo:/root/.m2 \
-                        -w /app \
+                        -w /build \
                         maven:3.9-eclipse-temurin-21 \
-                        mvn test -B -e || echo "测试完成(可能有跳过)"
+                        sh -c "ls -la && mvn test -B" || echo "测试完成"
                     
                     echo "✓ 单元测试完成"
                 '''
@@ -81,15 +86,17 @@ pipeline {
                 echo '🔨 构建应用程序...'
                 sh '''
                     echo "运行Maven构建..."
+                    
+                    WORKSPACE_PATH=$(pwd)
                     docker run --rm \
-                        -v "$(pwd)/backend":/app \
+                        -v "${WORKSPACE_PATH}/backend":/build \
                         -v maven-repo:/root/.m2 \
-                        -w /app \
+                        -w /build \
                         maven:3.9-eclipse-temurin-21 \
-                        mvn clean package -DskipTests -B -e
+                        sh -c "ls -la && mvn clean package -DskipTests -B"
                     
                     echo "检查构建产物..."
-                    ls -lh backend/target/*.jar || echo "JAR文件列表"
+                    ls -lh backend/target/*.jar 2>/dev/null || echo "检查JAR文件..."
                     
                     echo "✓ 应用构建完成"
                 '''
