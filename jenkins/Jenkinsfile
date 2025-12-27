@@ -206,7 +206,7 @@ pipeline {
                     docker run -d --name ecommerce-backend \
                         --network ecommerce-net \
                         -e SPRING_PROFILES_ACTIVE=prod \
-                        -e SPRING_DATASOURCE_URL=jdbc:mysql://ecommerce-mysql:3306/ecommerce?useSSL=false\&allowPublicKeyRetrieval=true\&serverTimezone=Asia/Shanghai \
+                        -e "SPRING_DATASOURCE_URL=jdbc:mysql://ecommerce-mysql:3306/ecommerce?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai" \
                         -e SPRING_DATASOURCE_USERNAME=ecommerce_user \
                         -e SPRING_DATASOURCE_PASSWORD=ecommerce123 \
                         -p 8080:8080 \
