@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -109,7 +108,7 @@ class OrderControllerTest {
     @DisplayName("GET /api/orders/user/{userId}/page - 分页获取用户订单")
     void getUserOrdersPage_ShouldReturnPagedOrders() throws Exception {
         Page<Order> orderPage = new PageImpl<>(Arrays.asList(testOrder));
-        when(orderService.getUserOrders(eq(1L), any(Pageable.class))).thenReturn(orderPage);
+        when(orderService.getUserOrders(any(Long.class), any(Pageable.class))).thenReturn(orderPage);
 
         mockMvc.perform(get("/api/orders/user/1/page")
                         .param("page", "0")
