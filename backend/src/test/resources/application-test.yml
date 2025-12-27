@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
     driver-class-name: org.h2.Driver
     username: sa
     password: 
@@ -8,11 +8,16 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: create
     show-sql: false
+    defer-datasource-initialization: true
     properties:
       hibernate:
         format_sql: true
+  
+  sql:
+    init:
+      mode: never
   
   h2:
     console:
@@ -22,4 +27,3 @@ logging:
   level:
     com.ecommerce: DEBUG
     org.springframework.test: INFO
-    org.hibernate.SQL: DEBUG

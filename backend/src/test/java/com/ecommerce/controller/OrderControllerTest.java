@@ -12,22 +12,25 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(OrderController.class)
-@DisplayName("订单控制器集成测试")
+@DisplayName("订单控制器测试")
 class OrderControllerTest {
 
     @Autowired
@@ -92,10 +95,25 @@ class OrderControllerTest {
     @Test
     @DisplayName("GET /api/orders/user/{userId} - 获取用户订单列表")
     void getUserOrders_ShouldReturnOrders() throws Exception {
-        Page<Order> orderPage = new PageImpl<>(Arrays.asList(testOrder), PageRequest.of(0, 10), 1);
-        when(orderService.getUserOrders(any(), any())).thenReturn(orderPage);
+        // 实际API返回List<Order>而不是Page<Order>
+        List<Order> orderList = Arrays.asList(testOrder);
+        when(orderService.getUserOrders(1L)).thenReturn(orderList);
 
         mockMvc.perform(get("/api/orders/user/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].orderNo").value("ORD20251227123456ABC123"));
+    }
+
+    @Test
+    @DisplayName("GET /api/orders/user/{userId}/page - 分页获取用户订单")
+    void getUserOrdersPage_ShouldReturnPagedOrders() throws Exception {
+        Page<Order> orderPage = new PageImpl<>(Arrays.asList(testOrder));
+        when(orderService.getUserOrders(eq(1L), any(Pageable.class))).thenReturn(orderPage);
+
+        mockMvc.perform(get("/api/orders/user/1/page")
+                        .param("page", "0")
+                        .param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content[0].orderNo").value("ORD20251227123456ABC123"));
@@ -107,8 +125,12 @@ class OrderControllerTest {
         testOrder.setStatus(Order.OrderStatus.PAID);
         when(orderService.updateOrderStatus(1L, Order.OrderStatus.PAID)).thenReturn(testOrder);
 
+        // 实际API使用@RequestBody Map<String, String>接收status
+        Map<String, String> body = Map.of("status", "PAID");
+
         mockMvc.perform(put("/api/orders/1/status")
-                        .param("status", "PAID"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAID"));
     }
