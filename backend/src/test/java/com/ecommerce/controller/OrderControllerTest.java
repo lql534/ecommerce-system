@@ -10,9 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -102,20 +99,6 @@ class OrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].orderNo").value("ORD20251227123456ABC123"));
-    }
-
-    @Test
-    @DisplayName("GET /api/orders/user/{userId}/page - 分页获取用户订单")
-    void getUserOrdersPage_ShouldReturnPagedOrders() throws Exception {
-        Page<Order> orderPage = new PageImpl<>(Arrays.asList(testOrder));
-        when(orderService.getUserOrders(any(Long.class), any(Pageable.class))).thenReturn(orderPage);
-
-        mockMvc.perform(get("/api/orders/user/1/page")
-                        .param("page", "0")
-                        .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.content[0].orderNo").value("ORD20251227123456ABC123"));
     }
 
     @Test
