@@ -1,8 +1,0 @@
-# Kubernetes 命名空间
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ecommerce
-  labels:
-    app: ecommerce
-    environment: production

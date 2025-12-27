@@ -1,51 +1,72 @@
 # 电商数据管理系统
 
-基于Docker容器化技术的电商数据管理系统，包含前端服务、后端API服务、数据库服务，并实现完整的CI/CD流水线。
+基于Docker的电商数据管理系统，包含完整的CI/CD流水线和Prometheus监控。
 
 ## 项目架构
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Nginx     │───▶│ Spring Boot │───▶│   MySQL     │
-│  Frontend   │    │   Backend   │    │  Database   │
-│    :80      │    │   :8080     │    │   :3306     │
-└─────────────┘    └─────────────┘    └─────────────┘
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   前端      │────▶│   后端API   │────▶│   MySQL     │
+│   Nginx     │     │ Spring Boot │     │   数据库    │
+│   :80       │     │   :8080     │     │   :3306     │
+└─────────────┘     └─────────────┘     └─────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ Prometheus  │
+                    │   监控      │
+                    │   :9090     │
+                    └─────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │  Grafana    │
+                    │  可视化     │
+                    │   :3000     │
+                    └─────────────┘
 ```
 
 ## 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 前端 | Nginx + HTML/CSS/JavaScript |
-| 后端 | Spring Boot 3.2 + JPA |
-| 数据库 | MySQL 8.0 |
-| 容器化 | Docker + Docker Compose |
-| CI/CD | Jenkins + GitHub Actions |
-| 编排 | Kubernetes |
-| 监控 | Prometheus + Grafana |
+| 组件 | 技术 | 版本 |
+|------|------|------|
+| 前端 | Nginx + HTML/CSS/JS | Alpine |
+| 后端 | Spring Boot | 3.2.0 |
+| 数据库 | MySQL | 8.0 |
+| 容器化 | Docker | 24.x |
+| CI/CD | Jenkins | LTS |
+| 镜像仓库 | Harbor | 2.x |
+| 监控 | Prometheus + Grafana | Latest |
 
-## 快速开始
+## 功能模块
 
+- 商品管理（CRUD）
+- 用户登录/注册
+- 购物车管理
+- 订单管理
+- 后台管理
+
+## 快速启动
+
+### 1. 启动应用
 ```bash
-# 克隆项目
-git clone https://github.com/lql534/ecommerce-system.git
 cd ecommerce-system
-
-# 启动服务
 docker compose up -d
-
-# 查看状态
-docker compose ps
 ```
 
-## 访问地址
+### 2. 启动监控
+```bash
+cd monitoring
+docker compose -f docker-compose.monitoring.yml up -d
+```
 
-| 服务 | 地址 |
-|------|------|
-| 前端页面 | http://localhost:80 |
-| 后端API | http://localhost:8080/api |
-| phpMyAdmin | http://localhost:8081 |
-| Jenkins | http://localhost:8082 |
+### 3. 访问地址
+- 前端: http://192.168.19.129:80
+- 后端API: http://192.168.19.129:8080/api
+- Prometheus: http://192.168.19.129:9090
+- Grafana: http://192.168.19.129:3000 (admin/admin123)
+- Harbor: http://192.168.19.129:8083 (admin/Harbor12345)
+- Jenkins: http://192.168.19.129:8082
 
 ## 测试账号
 
@@ -54,45 +75,82 @@ docker compose ps
 | 管理员 | admin | admin123 |
 | 普通用户 | user1 | user123 |
 
-## 项目文档
+## CI/CD流水线
 
-| 文档 | 说明 |
-|------|------|
-| [架构说明](docs/architecture.md) | 系统架构、技术栈、目录结构 |
-| [Dockerfile说明](docs/dockerfile-guide.md) | Dockerfile编写规范和最佳实践 |
-| [部署指南](docs/deployment-guide.md) | 详细的部署和运行步骤 |
-| [故障排查](docs/troubleshooting.md) | 常见问题及解决方案 |
-| [CI/CD指南](docs/cicd-guide.md) | Jenkins流水线配置说明 |
-| [Git协作规范](docs/git-workflow.md) | 分支策略、Commit规范、Code Review |
-| [代码规范](docs/code-standards.md) | Java/前端/配置文件编码规范 |
+Jenkins自动化流水线包含以下阶段：
+
+1. **代码检出** - 从GitHub拉取代码
+2. **项目验证** - 检查项目结构
+3. **代码质量检查** - 检查代码规范
+4. **单元测试** - Maven运行测试
+5. **构建应用** - Maven打包JAR
+6. **镜像构建** - 构建Docker镜像
+7. **推送Harbor** - 推送到私有仓库
+8. **集成测试** - 容器化测试
+9. **自动部署** - 部署到服务器
+10. **部署验证** - 验证服务状态
+
+### 触发方式
+- Poll SCM: 每分钟检查GitHub变化
+- 手动触发: Jenkins点击Build Now
 
 ## 目录结构
 
 ```
 ecommerce-system/
-├── backend/          # 后端Spring Boot服务
-├── frontend/         # 前端Nginx服务
-├── database/         # 数据库配置
-├── jenkins/          # Jenkins CI/CD配置
-├── k8s/              # Kubernetes部署配置
-├── monitoring/       # 监控配置
-├── docs/             # 项目文档
-├── scripts/          # 运维脚本
-└── docker-compose.yml
+├── backend/                 # 后端Spring Boot项目
+│   ├── src/
+│   ├── Dockerfile
+│   └── pom.xml
+├── frontend/                # 前端Nginx项目
+│   ├── html/
+│   ├── nginx.conf
+│   └── Dockerfile
+├── database/                # 数据库配置
+│   ├── init.sql
+│   └── Dockerfile
+├── jenkins/                 # Jenkins CI/CD配置
+│   ├── Jenkinsfile
+│   └── docker-compose.jenkins.yml
+├── monitoring/              # Prometheus监控配置
+│   ├── docker-compose.monitoring.yml
+│   ├── prometheus/
+│   └── grafana/
+├── docs/                    # 技术文档
+├── scripts/                 # 运维脚本
+├── docker-compose.yml       # 主编排文件
+└── README.md
 ```
 
-## 功能特性
+## 文档
 
-- ✅ 商品管理（CRUD）
-- ✅ 用户登录认证
-- ✅ 购物车功能
-- ✅ 订单管理
-- ✅ Docker容器化部署
-- ✅ CI/CD自动化流水线
-- ✅ Kubernetes编排
-- ✅ 蓝绿部署
-- ✅ 监控告警
+- [架构说明](docs/architecture.md)
+- [Dockerfile说明](docs/dockerfile-guide.md)
+- [部署指南](docs/deployment-guide.md)
+- [故障排查](docs/troubleshooting.md)
+- [CI/CD指南](docs/cicd-guide.md)
+- [Git协作规范](docs/git-workflow.md)
+- [代码规范](docs/code-standards.md)
 
-## License
+## API接口
 
-MIT License
+### 商品接口
+- `GET /api/products` - 获取商品列表
+- `GET /api/products/{id}` - 获取商品详情
+- `POST /api/products` - 创建商品
+- `PUT /api/products/{id}` - 更新商品
+- `DELETE /api/products/{id}` - 删除商品
+
+### 用户接口
+- `POST /api/users/login` - 用户登录
+- `POST /api/users/register` - 用户注册
+
+### 购物车接口
+- `GET /api/cart` - 获取购物车
+- `POST /api/cart/add` - 添加商品
+- `DELETE /api/cart/{id}` - 删除商品
+
+### 订单接口
+- `GET /api/orders` - 获取订单列表
+- `POST /api/orders` - 创建订单
+- `PUT /api/orders/{id}/status` - 更新订单状态
