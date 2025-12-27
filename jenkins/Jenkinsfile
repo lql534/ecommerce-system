@@ -64,6 +64,7 @@ pipeline {
                 sh '''
                     echo "同步代码到宿主机..."
                     rm -rf /root/ecommerce-system/backend/target 2>/dev/null || true
+                    rm -rf /root/ecommerce-system/backend/src/test/java/com/ecommerce/integration 2>/dev/null || true
                     cp -r backend/* /root/ecommerce-system/backend/ 2>/dev/null || true
                     
                     echo "运行所有测试并生成报告..."
