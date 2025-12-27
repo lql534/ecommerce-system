@@ -57,34 +57,33 @@ pipeline {
             }
         }
 
-        // ========== 4. 单元测试 ==========
-        stage('单元测试') {
+        // ========== 4. 单元测试与集成测试 ==========
+        stage('单元测试与集成测试') {
             steps {
-                echo '🧪 运行单元测试...'
+                echo '🧪 运行单元测试和集成测试...'
                 sh '''
                     echo "同步代码到宿主机..."
                     rm -rf /root/ecommerce-system/backend/target 2>/dev/null || true
                     cp -r backend/* /root/ecommerce-system/backend/ 2>/dev/null || true
                     
-                    echo "运行单元测试..."
+                    echo "运行所有测试并生成报告..."
                     docker run --rm \
                         -v /root/ecommerce-system/backend:/build \
                         -v maven-repo:/root/.m2 \
                         -w /build \
                         maven:3.9-eclipse-temurin-21 \
-                        sh -c "mvn clean test -B -Dtest=*ServiceTest,*ControllerTest,PaginationTest" || echo "测试执行完成"
+                        sh -c "mvn clean test surefire-report:report -B -Dspring.profiles.active=test"
                     
                     echo ""
                     echo "========== 测试报告 =========="
-                    # 显示测试结果
                     if ls /root/ecommerce-system/backend/target/surefire-reports/*.txt 1>/dev/null 2>&1; then
-                        echo "测试结果文件:"
-                        ls -la /root/ecommerce-system/backend/target/surefire-reports/*.txt 2>/dev/null || true
-                        echo ""
-                        cat /root/ecommerce-system/backend/target/surefire-reports/*.txt 2>/dev/null | tail -50 || true
+                        echo "测试结果:"
+                        cat /root/ecommerce-system/backend/target/surefire-reports/*.txt 2>/dev/null | grep -E "Tests run:|Results:" | head -20 || true
                     fi
+                    echo ""
+                    echo "HTML报告位置: /root/ecommerce-system/backend/target/site/surefire-report.html"
                     echo "=================================="
-                    echo "✓ 单元测试完成"
+                    echo "✓ 测试完成"
                 '''
             }
         }
