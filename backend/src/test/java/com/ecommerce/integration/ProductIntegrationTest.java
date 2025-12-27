@@ -41,7 +41,7 @@ class ProductIntegrationTest {
     }
 
     @Test
-    @Order(1)
+    @org.junit.jupiter.api.Order(1)
     @DisplayName("集成测试 - 创建商品")
     void createProduct_Integration_ShouldPersistToDatabase() throws Exception {
         Product product = new Product();
@@ -68,7 +68,7 @@ class ProductIntegrationTest {
     }
 
     @Test
-    @Order(2)
+    @org.junit.jupiter.api.Order(2)
     @DisplayName("集成测试 - 查询商品列表")
     void getProducts_Integration_ShouldReturnFromDatabase() throws Exception {
         mockMvc.perform(get("/api/products"))
@@ -78,7 +78,7 @@ class ProductIntegrationTest {
     }
 
     @Test
-    @Order(3)
+    @org.junit.jupiter.api.Order(3)
     @DisplayName("集成测试 - 根据ID查询商品")
     void getProductById_Integration_ShouldReturnProduct() throws Exception {
         if (createdProductId != null) {
@@ -89,7 +89,7 @@ class ProductIntegrationTest {
     }
 
     @Test
-    @Order(4)
+    @org.junit.jupiter.api.Order(4)
     @DisplayName("集成测试 - 更新商品")
     void updateProduct_Integration_ShouldUpdateInDatabase() throws Exception {
         if (createdProductId != null) {
@@ -113,7 +113,7 @@ class ProductIntegrationTest {
     }
 
     @Test
-    @Order(5)
+    @org.junit.jupiter.api.Order(5)
     @DisplayName("集成测试 - 搜索商品")
     void searchProducts_Integration_ShouldReturnMatchingProducts() throws Exception {
         mockMvc.perform(get("/api/products")
@@ -123,7 +123,7 @@ class ProductIntegrationTest {
     }
 
     @Test
-    @Order(6)
+    @org.junit.jupiter.api.Order(6)
     @DisplayName("集成测试 - 删除商品")
     void deleteProduct_Integration_ShouldRemoveFromDatabase() throws Exception {
         if (createdProductId != null) {

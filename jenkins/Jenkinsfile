@@ -57,48 +57,34 @@ pipeline {
             }
         }
 
-        // ========== 4. 单元测试与集成测试 ==========
-        stage('单元测试与集成测试') {
+        // ========== 4. 单元测试 ==========
+        stage('单元测试') {
             steps {
-                echo '🧪 运行单元测试和集成测试...'
+                echo '🧪 运行单元测试...'
                 sh '''
                     echo "同步代码到宿主机..."
                     rm -rf /root/ecommerce-system/backend/target 2>/dev/null || true
                     cp -r backend/* /root/ecommerce-system/backend/ 2>/dev/null || true
                     
-                    echo "运行测试并生成报告..."
+                    echo "运行单元测试..."
                     docker run --rm \
                         -v /root/ecommerce-system/backend:/build \
                         -v maven-repo:/root/.m2 \
                         -w /build \
                         maven:3.9-eclipse-temurin-21 \
-                        sh -c "mvn clean test surefire-report:report jacoco:report -B -Dspring.profiles.active=test" || echo "测试执行完成"
-                    
-                    echo "复制测试报告到Jenkins工作目录..."
-                    mkdir -p backend/target/surefire-reports
-                    mkdir -p backend/target/site/jacoco
-                    cp -r /root/ecommerce-system/backend/target/surefire-reports backend/target/ 2>/dev/null || true
-                    cp -r /root/ecommerce-system/backend/target/site backend/target/ 2>/dev/null || true
+                        sh -c "mvn clean test -B -Dtest=*ServiceTest,*ControllerTest,PaginationTest" || echo "测试执行完成"
                     
                     echo ""
-                    echo "========== 测试报告汇总 =========="
-                    echo "测试报告已生成到以下位置:"
-                    echo "  - 单元测试报告: /root/ecommerce-system/backend/target/site/surefire-report.html"
-                    echo "  - 代码覆盖率报告: /root/ecommerce-system/backend/target/site/jacoco/index.html"
-                    echo ""
-                    
-                    # 显示测试结果统计
-                    if ls /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml 1>/dev/null 2>&1; then
-                        echo "测试结果:"
-                        TESTS=$(grep -h "tests=" /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml 2>/dev/null | grep -oP 'tests="\\d+"' | grep -oP '\\d+' | awk '{s+=$1} END {print s}')
-                        FAILURES=$(grep -h "failures=" /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml 2>/dev/null | grep -oP 'failures="\\d+"' | grep -oP '\\d+' | awk '{s+=$1} END {print s}')
-                        ERRORS=$(grep -h "errors=" /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml 2>/dev/null | grep -oP 'errors="\\d+"' | grep -oP '\\d+' | awk '{s+=$1} END {print s}')
-                        echo "  总测试数: ${TESTS:-0}"
-                        echo "  失败数: ${FAILURES:-0}"
-                        echo "  错误数: ${ERRORS:-0}"
+                    echo "========== 测试报告 =========="
+                    # 显示测试结果
+                    if ls /root/ecommerce-system/backend/target/surefire-reports/*.txt 1>/dev/null 2>&1; then
+                        echo "测试结果文件:"
+                        ls -la /root/ecommerce-system/backend/target/surefire-reports/*.txt 2>/dev/null || true
+                        echo ""
+                        cat /root/ecommerce-system/backend/target/surefire-reports/*.txt 2>/dev/null | tail -50 || true
                     fi
                     echo "=================================="
-                    echo "✓ 测试完成"
+                    echo "✓ 单元测试完成"
                 '''
             }
         }

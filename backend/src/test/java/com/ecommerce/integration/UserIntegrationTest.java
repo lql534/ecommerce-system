@@ -58,7 +58,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    @Order(1)
+    @org.junit.jupiter.api.Order(1)
     @DisplayName("集成测试 - 用户登录成功")
     void login_Integration_WithValidCredentials_ShouldSucceed() throws Exception {
         Map<String, String> loginRequest = new HashMap<>();
@@ -74,7 +74,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    @Order(2)
+    @org.junit.jupiter.api.Order(2)
     @DisplayName("集成测试 - 用户登录失败-密码错误")
     void login_Integration_WithWrongPassword_ShouldFail() throws Exception {
         Map<String, String> loginRequest = new HashMap<>();
@@ -88,7 +88,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    @Order(3)
+    @org.junit.jupiter.api.Order(3)
     @DisplayName("集成测试 - 用户登录失败-用户不存在")
     void login_Integration_WithNonExistentUser_ShouldFail() throws Exception {
         Map<String, String> loginRequest = new HashMap<>();
@@ -102,7 +102,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    @Order(4)
+    @org.junit.jupiter.api.Order(4)
     @DisplayName("集成测试 - 禁用用户登录失败")
     void login_Integration_WithDisabledUser_ShouldFail() throws Exception {
         Map<String, String> loginRequest = new HashMap<>();
@@ -116,7 +116,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    @Order(5)
+    @org.junit.jupiter.api.Order(5)
     @DisplayName("集成测试 - 获取用户信息")
     void getUser_Integration_ShouldReturnUserInfo() throws Exception {
         User user = userRepository.findByUsername("testuser").orElseThrow();

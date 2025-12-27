@@ -2,7 +2,6 @@ package com.ecommerce.integration;
 
 import com.ecommerce.dto.CartItemDTO;
 import com.ecommerce.dto.CreateOrderDTO;
-import com.ecommerce.entity.Order;
 import com.ecommerce.entity.Product;
 import com.ecommerce.entity.User;
 import com.ecommerce.repository.CartItemRepository;
@@ -59,10 +58,8 @@ class CartOrderIntegrationTest {
     static void setUpAll(@Autowired UserRepository userRepository,
                          @Autowired ProductRepository productRepository,
                          @Autowired CartItemRepository cartItemRepository) {
-        // 清理购物车
         cartItemRepository.deleteAll();
 
-        // 创建测试用户
         User user = userRepository.findByUsername("cartuser").orElseGet(() -> {
             User newUser = new User();
             newUser.setUsername("cartuser");
@@ -74,7 +71,6 @@ class CartOrderIntegrationTest {
         });
         testUserId = user.getId();
 
-        // 创建测试商品
         Product product = new Product();
         product.setName("购物车测试商品");
         product.setDescription("用于购物车测试");
@@ -86,7 +82,7 @@ class CartOrderIntegrationTest {
     }
 
     @Test
-    @Order(1)
+    @org.junit.jupiter.api.Order(1)
     @DisplayName("集成测试 - 添加商品到购物车")
     void addToCart_Integration_ShouldAddItem() throws Exception {
         CartItemDTO dto = new CartItemDTO();
@@ -99,12 +95,11 @@ class CartOrderIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.quantity").value(2));
 
-        // 验证购物车
         Assertions.assertFalse(cartItemRepository.findByUserId(testUserId).isEmpty());
     }
 
     @Test
-    @Order(2)
+    @org.junit.jupiter.api.Order(2)
     @DisplayName("集成测试 - 查看购物车")
     void getCart_Integration_ShouldReturnItems() throws Exception {
         mockMvc.perform(get("/api/cart/" + testUserId))
@@ -114,7 +109,7 @@ class CartOrderIntegrationTest {
     }
 
     @Test
-    @Order(3)
+    @org.junit.jupiter.api.Order(3)
     @DisplayName("集成测试 - 更新购物车数量")
     void updateCart_Integration_ShouldUpdateQuantity() throws Exception {
         Map<String, Integer> body = new HashMap<>();
@@ -128,7 +123,7 @@ class CartOrderIntegrationTest {
     }
 
     @Test
-    @Order(4)
+    @org.junit.jupiter.api.Order(4)
     @DisplayName("集成测试 - 从购物车创建订单")
     void createOrderFromCart_Integration_ShouldCreateOrder() throws Exception {
         CreateOrderDTO dto = new CreateOrderDTO();
@@ -145,22 +140,20 @@ class CartOrderIntegrationTest {
                 .andReturn();
 
         String response = result.getResponse().getContentAsString();
-        Order order = objectMapper.readValue(response, Order.class);
+        com.ecommerce.entity.Order order = objectMapper.readValue(response, com.ecommerce.entity.Order.class);
         createdOrderNo = order.getOrderNo();
 
-        // 验证购物车已清空
         Assertions.assertTrue(cartItemRepository.findByUserId(testUserId).isEmpty());
 
-        // 验证库存已扣减
         Product product = productRepository.findById(testProductId).orElseThrow();
-        Assertions.assertEquals(95, product.getStock()); // 100 - 5 = 95
+        Assertions.assertEquals(95, product.getStock());
     }
 
     @Test
-    @Order(5)
+    @org.junit.jupiter.api.Order(5)
     @DisplayName("集成测试 - 查询订单详情")
     void getOrder_Integration_ShouldReturnOrder() throws Exception {
-        Order order = orderRepository.findByOrderNo(createdOrderNo).orElseThrow();
+        com.ecommerce.entity.Order order = orderRepository.findByOrderNo(createdOrderNo).orElseThrow();
 
         mockMvc.perform(get("/api/orders/" + order.getId()))
                 .andExpect(status().isOk())
@@ -169,7 +162,7 @@ class CartOrderIntegrationTest {
     }
 
     @Test
-    @Order(6)
+    @org.junit.jupiter.api.Order(6)
     @DisplayName("集成测试 - 查询用户订单列表")
     void getUserOrders_Integration_ShouldReturnOrders() throws Exception {
         mockMvc.perform(get("/api/orders/user/" + testUserId))
@@ -179,28 +172,25 @@ class CartOrderIntegrationTest {
     }
 
     @Test
-    @Order(7)
+    @org.junit.jupiter.api.Order(7)
     @DisplayName("集成测试 - 更新订单状态为已支付")
     void updateOrderStatus_Integration_ShouldUpdateToPaid() throws Exception {
-        Order order = orderRepository.findByOrderNo(createdOrderNo).orElseThrow();
+        com.ecommerce.entity.Order order = orderRepository.findByOrderNo(createdOrderNo).orElseThrow();
 
         mockMvc.perform(put("/api/orders/" + order.getId() + "/status")
                         .param("status", "PAID"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAID"));
 
-        // 验证数据库状态
-        Order updatedOrder = orderRepository.findById(order.getId()).orElseThrow();
-        Assertions.assertEquals(Order.OrderStatus.PAID, updatedOrder.getStatus());
+        com.ecommerce.entity.Order updatedOrder = orderRepository.findById(order.getId()).orElseThrow();
+        Assertions.assertEquals(com.ecommerce.entity.Order.OrderStatus.PAID, updatedOrder.getStatus());
         Assertions.assertNotNull(updatedOrder.getPaidAt());
     }
 
     @Test
-    @Order(8)
+    @org.junit.jupiter.api.Order(8)
     @DisplayName("集成测试 - 取消订单并恢复库存")
     void cancelOrder_Integration_ShouldRestoreStock() throws Exception {
-        // 先创建一个新订单用于取消测试
-        // 添加商品到购物车
         CartItemDTO dto = new CartItemDTO();
         dto.setProductId(testProductId);
         dto.setQuantity(3);
@@ -210,7 +200,6 @@ class CartOrderIntegrationTest {
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
 
-        // 创建订单
         CreateOrderDTO orderDto = new CreateOrderDTO();
         orderDto.setUserId(testUserId);
         orderDto.setShippingAddress("取消测试地址");
@@ -222,18 +211,15 @@ class CartOrderIntegrationTest {
                 .andReturn();
 
         String response = result.getResponse().getContentAsString();
-        Order newOrder = objectMapper.readValue(response, Order.class);
+        com.ecommerce.entity.Order newOrder = objectMapper.readValue(response, com.ecommerce.entity.Order.class);
 
-        // 记录取消前库存
         Product beforeCancel = productRepository.findById(testProductId).orElseThrow();
         int stockBeforeCancel = beforeCancel.getStock();
 
-        // 取消订单
         mockMvc.perform(post("/api/orders/" + newOrder.getId() + "/cancel"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
-        // 验证库存已恢复
         Product afterCancel = productRepository.findById(testProductId).orElseThrow();
         Assertions.assertEquals(stockBeforeCancel + 3, afterCancel.getStock());
     }
