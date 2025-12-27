@@ -1,18 +1,17 @@
 package com.ecommerce.integration;
 
 import com.ecommerce.entity.Order;
-import com.ecommerce.entity.OrderItem;
 import com.ecommerce.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -22,10 +21,17 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@ActiveProfiles("test")
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
+@TestPropertySource(properties = {
+    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL",
+    "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.jpa.hibernate.ddl-auto=create-drop",
+    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect"
+})
 @DisplayName("订单Repository集成测试")
 class OrderRepositoryIntegrationTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     @Autowired
     private OrderRepository orderRepository;
@@ -34,15 +40,13 @@ class OrderRepositoryIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        orderRepository.deleteAll();
-        
         testOrder = new Order();
         testOrder.setOrderNo("ORD" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         testOrder.setUserId(1L);
         testOrder.setTotalAmount(new BigDecimal("299.99"));
         testOrder.setStatus(Order.OrderStatus.PENDING);
         testOrder.setShippingAddress("北京市朝阳区测试地址");
-        testOrder = orderRepository.save(testOrder);
+        testOrder = entityManager.persistAndFlush(testOrder);
     }
 
     @Test
@@ -80,13 +84,12 @@ class OrderRepositoryIntegrationTest {
     @Test
     @DisplayName("根据用户ID查询订单列表")
     void findByUserId_ShouldReturnUserOrders() {
-        // 添加更多订单
         Order order2 = new Order();
         order2.setOrderNo("ORD" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         order2.setUserId(1L);
         order2.setTotalAmount(new BigDecimal("99.99"));
         order2.setStatus(Order.OrderStatus.PAID);
-        orderRepository.save(order2);
+        entityManager.persistAndFlush(order2);
 
         List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(1L);
 
@@ -96,20 +99,20 @@ class OrderRepositoryIntegrationTest {
     @Test
     @DisplayName("分页查询用户订单")
     void findByUserId_WithPagination_ShouldReturnPagedResults() {
-        // 添加多个订单
         for (int i = 0; i < 15; i++) {
             Order order = new Order();
             order.setOrderNo("ORD" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
             order.setUserId(1L);
             order.setTotalAmount(new BigDecimal("10.00"));
             order.setStatus(Order.OrderStatus.PENDING);
-            orderRepository.save(order);
+            entityManager.persist(order);
         }
+        entityManager.flush();
 
         Page<Order> page = orderRepository.findByUserId(1L, PageRequest.of(0, 10));
 
         assertThat(page.getContent()).hasSize(10);
-        assertThat(page.getTotalElements()).isEqualTo(16); // 15 + 1(testOrder)
+        assertThat(page.getTotalElements()).isEqualTo(16);
     }
 
     @Test
@@ -120,7 +123,7 @@ class OrderRepositoryIntegrationTest {
         paidOrder.setUserId(2L);
         paidOrder.setTotalAmount(new BigDecimal("50.00"));
         paidOrder.setStatus(Order.OrderStatus.PAID);
-        orderRepository.save(paidOrder);
+        entityManager.persistAndFlush(paidOrder);
 
         Page<Order> pendingOrders = orderRepository.findByStatus(
             Order.OrderStatus.PENDING, PageRequest.of(0, 10));
@@ -135,7 +138,7 @@ class OrderRepositoryIntegrationTest {
     @DisplayName("更新订单状态 - 应成功更新")
     void updateStatus_ShouldModifyOrderStatus() {
         testOrder.setStatus(Order.OrderStatus.PAID);
-        orderRepository.save(testOrder);
+        entityManager.persistAndFlush(testOrder);
 
         Order updated = orderRepository.findById(testOrder.getId()).orElseThrow();
 
@@ -145,21 +148,18 @@ class OrderRepositoryIntegrationTest {
     @Test
     @DisplayName("订单状态流转 - PENDING -> PAID -> SHIPPED -> DELIVERED")
     void orderStatusFlow_ShouldTransitionCorrectly() {
-        // PENDING -> PAID
         testOrder.setStatus(Order.OrderStatus.PAID);
-        orderRepository.save(testOrder);
+        entityManager.persistAndFlush(testOrder);
         assertThat(orderRepository.findById(testOrder.getId()).get().getStatus())
             .isEqualTo(Order.OrderStatus.PAID);
 
-        // PAID -> SHIPPED
         testOrder.setStatus(Order.OrderStatus.SHIPPED);
-        orderRepository.save(testOrder);
+        entityManager.persistAndFlush(testOrder);
         assertThat(orderRepository.findById(testOrder.getId()).get().getStatus())
             .isEqualTo(Order.OrderStatus.SHIPPED);
 
-        // SHIPPED -> DELIVERED
         testOrder.setStatus(Order.OrderStatus.DELIVERED);
-        orderRepository.save(testOrder);
+        entityManager.persistAndFlush(testOrder);
         assertThat(orderRepository.findById(testOrder.getId()).get().getStatus())
             .isEqualTo(Order.OrderStatus.DELIVERED);
     }
@@ -168,7 +168,7 @@ class OrderRepositoryIntegrationTest {
     @DisplayName("取消订单 - 应成功更新为CANCELLED状态")
     void cancelOrder_ShouldSetStatusToCancelled() {
         testOrder.setStatus(Order.OrderStatus.CANCELLED);
-        orderRepository.save(testOrder);
+        entityManager.persistAndFlush(testOrder);
 
         Order cancelled = orderRepository.findById(testOrder.getId()).orElseThrow();
 
@@ -180,6 +180,7 @@ class OrderRepositoryIntegrationTest {
     void delete_ShouldRemoveOrder() {
         Long id = testOrder.getId();
         orderRepository.deleteById(id);
+        entityManager.flush();
 
         Optional<Order> deleted = orderRepository.findById(id);
 
@@ -194,7 +195,7 @@ class OrderRepositoryIntegrationTest {
         order2.setUserId(1L);
         order2.setTotalAmount(new BigDecimal("50.00"));
         order2.setStatus(Order.OrderStatus.PENDING);
-        orderRepository.save(order2);
+        entityManager.persistAndFlush(order2);
 
         Page<Order> orders = orderRepository.findAll(
             PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));

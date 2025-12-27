@@ -6,23 +6,29 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@ActiveProfiles("test")
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
+@TestPropertySource(properties = {
+    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL",
+    "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.jpa.hibernate.ddl-auto=create-drop",
+    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect"
+})
 @DisplayName("商品Repository集成测试")
 class ProductRepositoryIntegrationTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     @Autowired
     private ProductRepository productRepository;
@@ -31,8 +37,6 @@ class ProductRepositoryIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        productRepository.deleteAll();
-        
         testProduct = new Product();
         testProduct.setName("测试商品");
         testProduct.setDescription("这是一个测试商品");
@@ -40,7 +44,7 @@ class ProductRepositoryIntegrationTest {
         testProduct.setStock(100);
         testProduct.setCategory("电子产品");
         testProduct.setImageUrl("/images/test.jpg");
-        testProduct = productRepository.save(testProduct);
+        testProduct = entityManager.persistAndFlush(testProduct);
     }
 
     @Test
@@ -96,20 +100,20 @@ class ProductRepositoryIntegrationTest {
     @Test
     @DisplayName("分页查询 - 应正确分页")
     void findAll_WithPagination_ShouldReturnPagedResults() {
-        // 添加更多商品
         for (int i = 0; i < 15; i++) {
             Product p = new Product();
             p.setName("商品" + i);
             p.setPrice(new BigDecimal("10.00"));
             p.setStock(10);
-            productRepository.save(p);
+            entityManager.persist(p);
         }
+        entityManager.flush();
 
         Page<Product> page1 = productRepository.findAll(PageRequest.of(0, 10));
         Page<Product> page2 = productRepository.findAll(PageRequest.of(1, 10));
 
         assertThat(page1.getContent()).hasSize(10);
-        assertThat(page2.getContent()).hasSize(6); // 15 + 1(testProduct) - 10 = 6
+        assertThat(page2.getContent()).hasSize(6);
         assertThat(page1.getTotalElements()).isEqualTo(16);
     }
 
@@ -118,7 +122,7 @@ class ProductRepositoryIntegrationTest {
     void update_ShouldModifyProduct() {
         testProduct.setName("更新后的商品名");
         testProduct.setPrice(new BigDecimal("199.99"));
-        productRepository.save(testProduct);
+        entityManager.persistAndFlush(testProduct);
 
         Product updated = productRepository.findById(testProduct.getId()).orElseThrow();
 
@@ -131,6 +135,7 @@ class ProductRepositoryIntegrationTest {
     void delete_ShouldRemoveProduct() {
         Long id = testProduct.getId();
         productRepository.deleteById(id);
+        entityManager.flush();
 
         Optional<Product> deleted = productRepository.findById(id);
 

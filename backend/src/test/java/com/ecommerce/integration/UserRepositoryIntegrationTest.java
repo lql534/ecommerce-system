@@ -6,19 +6,26 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.test.context.TestPropertySource;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@ActiveProfiles("test")
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
+@TestPropertySource(properties = {
+    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL",
+    "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.jpa.hibernate.ddl-auto=create-drop",
+    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect"
+})
 @DisplayName("用户Repository集成测试")
 class UserRepositoryIntegrationTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     @Autowired
     private UserRepository userRepository;
@@ -27,15 +34,13 @@ class UserRepositoryIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        userRepository.deleteAll();
-        
         testUser = new User();
         testUser.setUsername("testuser");
         testUser.setPassword("password123");
         testUser.setEmail("test@example.com");
         testUser.setPhone("13800138000");
         testUser.setRole("USER");
-        testUser = userRepository.save(testUser);
+        testUser = entityManager.persistAndFlush(testUser);
     }
 
     @Test
@@ -107,7 +112,7 @@ class UserRepositoryIntegrationTest {
     void update_ShouldModifyUser() {
         testUser.setEmail("updated@example.com");
         testUser.setPhone("13900139000");
-        userRepository.save(testUser);
+        entityManager.persistAndFlush(testUser);
 
         User updated = userRepository.findById(testUser.getId()).orElseThrow();
 
@@ -120,6 +125,7 @@ class UserRepositoryIntegrationTest {
     void delete_ShouldRemoveUser() {
         Long id = testUser.getId();
         userRepository.deleteById(id);
+        entityManager.flush();
 
         Optional<User> deleted = userRepository.findById(id);
 
