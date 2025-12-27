@@ -16,19 +16,19 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
+  # Node Exporter 主机监控
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # cAdvisor 容器监控
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
   # Spring Boot 后端服务监控
   - job_name: 'ecommerce-backend'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['backend:8080']
+      - targets: ['ecommerce-backend:8080']
     scrape_interval: 10s
-
-  # Docker 容器监控 (需要 cAdvisor)
-  - job_name: 'docker'
-    static_configs:
-      - targets: ['cadvisor:8080']
-
-  # MySQL 监控 (需要 mysqld_exporter)
-  - job_name: 'mysql'
-    static_configs:
-      - targets: ['mysql-exporter:9104']
