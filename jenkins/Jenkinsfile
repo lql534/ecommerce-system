@@ -63,13 +63,13 @@ pipeline {
                 echo '🧪 运行单元测试...'
                 sh '''
                     echo "运行单元测试..."
-                    echo "检查pom.xml位置..."
-                    ls -la backend/
                     
-                    # 使用绝对路径挂载
-                    WORKSPACE_PATH=$(pwd)
+                    # 复制backend到宿主机可访问的目录
+                    rm -rf /var/jenkins_home/workspace/ecommerce-source/backend/target 2>/dev/null || true
+                    cp -r backend/* /var/jenkins_home/workspace/ecommerce-source/backend/ 2>/dev/null || true
+                    
                     docker run --rm \
-                        -v "${WORKSPACE_PATH}/backend":/build \
+                        -v /root/ecommerce-system/backend:/build \
                         -v maven-repo:/root/.m2 \
                         -w /build \
                         maven:3.9-eclipse-temurin-21 \
@@ -87,15 +87,15 @@ pipeline {
                 sh '''
                     echo "运行Maven构建..."
                     
-                    WORKSPACE_PATH=$(pwd)
                     docker run --rm \
-                        -v "${WORKSPACE_PATH}/backend":/build \
+                        -v /root/ecommerce-system/backend:/build \
                         -v maven-repo:/root/.m2 \
                         -w /build \
                         maven:3.9-eclipse-temurin-21 \
                         sh -c "ls -la && mvn clean package -DskipTests -B"
                     
-                    echo "检查构建产物..."
+                    echo "复制构建产物..."
+                    cp -r /root/ecommerce-system/backend/target backend/ 2>/dev/null || true
                     ls -lh backend/target/*.jar 2>/dev/null || echo "检查JAR文件..."
                     
                     echo "✓ 应用构建完成"
