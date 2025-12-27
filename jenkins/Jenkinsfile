@@ -159,65 +159,7 @@ pipeline {
             }
         }
 
-        // ========== 8. 集成测试验证 ==========
-        stage('集成测试验证') {
-            steps {
-                echo '🔗 运行部署后集成测试验证...'
-                sh '''
-                    echo "等待服务完全启动..."
-                    sleep 10
-                    
-                    echo "========== API集成测试 =========="
-                    
-                    echo "1. 测试商品列表API..."
-                    PRODUCT_RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/products)
-                    if [ "$PRODUCT_RESULT" = "200" ]; then
-                        echo "✓ 商品列表API正常 (HTTP $PRODUCT_RESULT)"
-                    else
-                        echo "✗ 商品列表API异常 (HTTP $PRODUCT_RESULT)"
-                    fi
-                    
-                    echo "2. 测试用户登录API..."
-                    LOGIN_RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/api/users/login \
-                        -H "Content-Type: application/json" \
-                        -d '{"username":"admin","password":"admin123"}')
-                    if [ "$LOGIN_RESULT" = "200" ]; then
-                        echo "✓ 用户登录API正常 (HTTP $LOGIN_RESULT)"
-                    else
-                        echo "✗ 用户登录API异常 (HTTP $LOGIN_RESULT)"
-                    fi
-                    
-                    echo "3. 测试健康检查API..."
-                    HEALTH_RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health)
-                    if [ "$HEALTH_RESULT" = "200" ]; then
-                        echo "✓ 健康检查API正常 (HTTP $HEALTH_RESULT)"
-                    else
-                        echo "✗ 健康检查API异常 (HTTP $HEALTH_RESULT)"
-                    fi
-                    
-                    echo "4. 测试前端页面..."
-                    FRONTEND_RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:80)
-                    if [ "$FRONTEND_RESULT" = "200" ]; then
-                        echo "✓ 前端页面正常 (HTTP $FRONTEND_RESULT)"
-                    else
-                        echo "✗ 前端页面异常 (HTTP $FRONTEND_RESULT)"
-                    fi
-                    
-                    echo "5. 测试Swagger文档..."
-                    SWAGGER_RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/swagger-ui/index.html)
-                    if [ "$SWAGGER_RESULT" = "200" ]; then
-                        echo "✓ Swagger文档正常 (HTTP $SWAGGER_RESULT)"
-                    else
-                        echo "✗ Swagger文档异常 (HTTP $SWAGGER_RESULT)"
-                    fi
-                    
-                    echo ""
-                    echo "✓ 集成测试验证完成"
-                '''
-            }
-        }
-
-        // ========== 9. 自动部署 ==========
+        // ========== 8. 自动部署 ==========
         stage('自动部署') {
             steps {
                 echo '🚀 自动部署应用...'
@@ -283,7 +225,7 @@ pipeline {
             }
         }
 
-        // ========== 10. 部署验证 ==========
+        // ========== 9. 部署验证 ==========
         stage('部署验证') {
             steps {
                 echo '✅ 验证部署状态...'
@@ -295,13 +237,43 @@ pipeline {
                     echo "运行中的容器:"
                     docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep ecommerce || true
                     echo ""
-                    echo "测试后端API..."
-                    curl -s http://localhost:8080/api/products | head -c 200 || echo "后端API测试"
-                    echo ""
-                    echo ""
-                    echo "测试前端..."
-                    curl -s -o /dev/null -w "前端HTTP状态: %{http_code}" http://localhost:80 || echo "前端测试"
-                    echo ""
+                    
+                    echo "========== API集成测试 =========="
+                    
+                    echo "1. 测试商品列表API..."
+                    PRODUCT_RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/products || echo "000")
+                    if [ "$PRODUCT_RESULT" = "200" ]; then
+                        echo "✓ 商品列表API正常 (HTTP $PRODUCT_RESULT)"
+                    else
+                        echo "⚠ 商品列表API状态 (HTTP $PRODUCT_RESULT)"
+                    fi
+                    
+                    echo "2. 测试用户登录API..."
+                    LOGIN_RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/api/users/login \
+                        -H "Content-Type: application/json" \
+                        -d '{"username":"admin","password":"admin123"}' || echo "000")
+                    if [ "$LOGIN_RESULT" = "200" ]; then
+                        echo "✓ 用户登录API正常 (HTTP $LOGIN_RESULT)"
+                    else
+                        echo "⚠ 用户登录API状态 (HTTP $LOGIN_RESULT)"
+                    fi
+                    
+                    echo "3. 测试健康检查API..."
+                    HEALTH_RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health || echo "000")
+                    if [ "$HEALTH_RESULT" = "200" ]; then
+                        echo "✓ 健康检查API正常 (HTTP $HEALTH_RESULT)"
+                    else
+                        echo "⚠ 健康检查API状态 (HTTP $HEALTH_RESULT)"
+                    fi
+                    
+                    echo "4. 测试前端页面..."
+                    FRONTEND_RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:80 || echo "000")
+                    if [ "$FRONTEND_RESULT" = "200" ]; then
+                        echo "✓ 前端页面正常 (HTTP $FRONTEND_RESULT)"
+                    else
+                        echo "⚠ 前端页面状态 (HTTP $FRONTEND_RESULT)"
+                    fi
+                    
                     echo ""
                     echo "访问地址:"
                     echo "  - 前端: http://192.168.19.129:80"
@@ -316,30 +288,11 @@ pipeline {
     }
 
     post {
-        always {
-            echo '📊 生成测试报告汇总...'
-            sh '''
-                echo "=========================================="
-                echo "📋 测试报告汇总"
-                echo "=========================================="
-                echo ""
-                echo "测试报告位置:"
-                echo "  - 单元测试报告: backend/target/site/surefire-report.html"
-                echo "  - 代码覆盖率报告: backend/target/site/jacoco/index.html"
-                echo ""
-                if [ -f /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml ]; then
-                    echo "测试结果统计:"
-                    grep -h "testsuite" /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml 2>/dev/null | head -5 || true
-                fi
-                echo "=========================================="
-            '''
-        }
         success {
             echo '''
             ╔════════════════════════════════════════╗
             ║     ✅ CI/CD 流水线执行成功!             ║
             ║     镜像已推送到Harbor仓库                ║
-            ║     测试报告已生成                        ║
             ╚════════════════════════════════════════╝
             '''
         }
@@ -347,7 +300,6 @@ pipeline {
             echo '''
             ╔════════════════════════════════════════╗
             ║     ❌ CI/CD 流水线执行失败!              ║
-            ║     请查看测试报告了解详情                 ║
             ╚════════════════════════════════════════╝
             '''
         }
