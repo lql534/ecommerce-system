@@ -208,6 +208,7 @@ pipeline {
                     echo "启动后端服务..."
                     docker run -d --name ecommerce-backend \
                         --network ecommerce-net \
+                        --network-alias backend \
                         -e SPRING_PROFILES_ACTIVE=prod \
                         -e "SPRING_DATASOURCE_URL=jdbc:mysql://ecommerce-mysql:3306/ecommerce?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai" \
                         -e SPRING_DATASOURCE_USERNAME=ecommerce_user \
