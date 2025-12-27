@@ -4,7 +4,7 @@ version: '3.8'
 services:
   # cAdvisor 容器指标采集
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: zcube/cadvisor:latest
     container_name: cadvisor
     restart: unless-stopped
     ports:
