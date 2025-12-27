@@ -80,34 +80,26 @@ pipeline {
                     cp -r /root/ecommerce-system/backend/target/surefire-reports backend/target/ 2>/dev/null || true
                     cp -r /root/ecommerce-system/backend/target/site backend/target/ 2>/dev/null || true
                     
-                    echo "✓ 测试完成，报告已生成"
+                    echo ""
+                    echo "========== 测试报告汇总 =========="
+                    echo "测试报告已生成到以下位置:"
+                    echo "  - 单元测试报告: /root/ecommerce-system/backend/target/site/surefire-report.html"
+                    echo "  - 代码覆盖率报告: /root/ecommerce-system/backend/target/site/jacoco/index.html"
+                    echo ""
+                    
+                    # 显示测试结果统计
+                    if ls /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml 1>/dev/null 2>&1; then
+                        echo "测试结果:"
+                        TESTS=$(grep -h "tests=" /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml 2>/dev/null | grep -oP 'tests="\\d+"' | grep -oP '\\d+' | awk '{s+=$1} END {print s}')
+                        FAILURES=$(grep -h "failures=" /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml 2>/dev/null | grep -oP 'failures="\\d+"' | grep -oP '\\d+' | awk '{s+=$1} END {print s}')
+                        ERRORS=$(grep -h "errors=" /root/ecommerce-system/backend/target/surefire-reports/TEST-*.xml 2>/dev/null | grep -oP 'errors="\\d+"' | grep -oP '\\d+' | awk '{s+=$1} END {print s}')
+                        echo "  总测试数: ${TESTS:-0}"
+                        echo "  失败数: ${FAILURES:-0}"
+                        echo "  错误数: ${ERRORS:-0}"
+                    fi
+                    echo "=================================="
+                    echo "✓ 测试完成"
                 '''
-            }
-            post {
-                always {
-                    // 发布JUnit测试结果
-                    junit allowEmptyResults: true, testResults: 'backend/target/surefire-reports/*.xml'
-                    
-                    // 发布HTML测试报告
-                    publishHTML(target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'backend/target/site',
-                        reportFiles: 'surefire-report.html',
-                        reportName: '单元测试报告'
-                    ])
-                    
-                    // 发布JaCoCo覆盖率报告
-                    publishHTML(target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'backend/target/site/jacoco',
-                        reportFiles: 'index.html',
-                        reportName: '代码覆盖率报告'
-                    ])
-                }
             }
         }
 
