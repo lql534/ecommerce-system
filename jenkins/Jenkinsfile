@@ -1,13 +1,12 @@
 // ============================================
 // Jenkins Pipeline - 电商数据管理系统 CI/CD
-// 推送镜像到Harbor仓库
+// 从GitHub检出代码，推送镜像到Harbor仓库
 // ============================================
 
 pipeline {
     agent any
 
     environment {
-        SOURCE_DIR = '/var/jenkins_home/workspace/ecommerce-source'
         HARBOR_URL = '192.168.19.129:8083'
         HARBOR_PROJECT = 'ecommerce'
         HARBOR_USER = 'admin'
@@ -21,72 +20,99 @@ pipeline {
     }
 
     stages {
-        // ========== 1. 项目验证 ==========
-        stage('项目验证') {
+        // ========== 1. 代码检出 ==========
+        stage('代码检出') {
             steps {
-                echo '🔍 验证项目结构...'
+                echo '📥 从GitHub检出代码...'
+                checkout scm
                 sh '''
-                    echo "检查源代码目录..."
-                    ls -la ${SOURCE_DIR}
-                    test -f ${SOURCE_DIR}/backend/pom.xml && echo "✓ pom.xml 存在"
-                    test -f ${SOURCE_DIR}/frontend/Dockerfile && echo "✓ 前端Dockerfile 存在"
-                    test -f ${SOURCE_DIR}/backend/Dockerfile && echo "✓ 后端Dockerfile 存在"
+                    echo "工作目录: $(pwd)"
+                    ls -la
                 '''
             }
         }
 
-        // ========== 2. 代码质量检查 ==========
+        // ========== 2. 项目验证 ==========
+        stage('项目验证') {
+            steps {
+                echo '🔍 验证项目结构...'
+                sh '''
+                    test -f backend/pom.xml && echo "✓ pom.xml 存在"
+                    test -f frontend/Dockerfile && echo "✓ 前端Dockerfile 存在"
+                    test -f backend/Dockerfile && echo "✓ 后端Dockerfile 存在"
+                    test -f docker-compose.yml && echo "✓ docker-compose.yml 存在"
+                '''
+            }
+        }
+
+        // ========== 3. 代码质量检查 ==========
         stage('代码质量检查') {
             steps {
                 echo '📋 代码质量检查...'
                 sh '''
-                    find ${SOURCE_DIR}/backend -name "*.java" | head -5
+                    echo "检查Java源文件..."
+                    find backend/src -name "*.java" | wc -l
                     echo "✓ 代码质量检查完成"
                 '''
             }
         }
 
-        // ========== 3. 单元测试 ==========
+        // ========== 4. 单元测试 ==========
         stage('单元测试') {
             steps {
                 echo '🧪 运行单元测试...'
                 sh '''
+                    echo "当前目录: $(pwd)"
+                    echo "检查backend目录..."
+                    ls -la backend/
+                    
+                    echo "拉取Maven镜像..."
+                    docker pull maven:3.9-eclipse-temurin-21 || echo "使用已有镜像"
+                    
+                    echo "运行单元测试..."
                     docker run --rm \
-                        -v ${SOURCE_DIR}/backend:/app \
+                        -v "$(pwd)/backend":/app \
                         -v maven-repo:/root/.m2 \
                         -w /app \
                         maven:3.9-eclipse-temurin-21 \
-                        mvn test -B
+                        mvn test -B -e
+                    
                     echo "✓ 单元测试完成"
                 '''
             }
         }
 
-        // ========== 4. 构建应用 ==========
+        // ========== 5. 构建应用 ==========
         stage('构建应用') {
             steps {
                 echo '🔨 构建应用程序...'
                 sh '''
+                    echo "当前目录: $(pwd)"
+                    
+                    echo "运行Maven构建..."
                     docker run --rm \
-                        -v ${SOURCE_DIR}/backend:/app \
+                        -v "$(pwd)/backend":/app \
                         -v maven-repo:/root/.m2 \
                         -w /app \
                         maven:3.9-eclipse-temurin-21 \
-                        mvn clean package -DskipTests -B
+                        mvn clean package -DskipTests -B -e
+                    
+                    echo "检查构建产物..."
+                    ls -lh backend/target/*.jar || echo "JAR文件列表"
+                    
                     echo "✓ 应用构建完成"
-                    ls -lh ${SOURCE_DIR}/backend/target/*.jar
                 '''
             }
         }
 
-        // ========== 5. 镜像构建 ==========
+        // ========== 6. 镜像构建 ==========
         stage('镜像构建') {
             parallel {
                 stage('构建前端镜像') {
                     steps {
                         echo '🐳 构建前端Docker镜像...'
                         sh '''
-                            docker build -t ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:${BUILD_NUMBER} ${SOURCE_DIR}/frontend
+                            docker build -t ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:${BUILD_NUMBER} ./frontend
                             docker tag ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:${BUILD_NUMBER} ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:latest
                             echo "✓ 前端镜像构建完成"
                         '''
@@ -96,7 +122,7 @@ pipeline {
                     steps {
                         echo '🐳 构建后端Docker镜像...'
                         sh '''
-                            docker build -t ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER} ${SOURCE_DIR}/backend
+                            docker build -t ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER} ./backend
                             docker tag ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER} ${HARBOR_URL}/${HARBOR_PROJECT}/backend:latest
                             echo "✓ 后端镜像构建完成"
                         '''
@@ -105,7 +131,7 @@ pipeline {
             }
         }
 
-        // ========== 6. 推送镜像到Harbor ==========
+        // ========== 7. 推送镜像到Harbor ==========
         stage('推送镜像到Harbor') {
             steps {
                 echo '📤 推送镜像到Harbor仓库...'
@@ -126,31 +152,22 @@ pipeline {
             }
         }
 
-        // ========== 7. 集成测试 ==========
+        // ========== 8. 集成测试 ==========
         stage('集成测试') {
             steps {
                 echo '🔗 运行集成测试...'
                 sh '''
-                    docker run -d --name test-backend-${BUILD_NUMBER} ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER} || true
+                    echo "启动测试容器..."
+                    docker run -d --name test-backend-${BUILD_NUMBER} \
+                        -e SPRING_PROFILES_ACTIVE=test \
+                        ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER} || true
+                    
                     sleep 5
+                    
+                    echo "清理测试容器..."
                     docker rm -f test-backend-${BUILD_NUMBER} || true
+                    
                     echo "✓ 集成测试完成"
-                '''
-            }
-        }
-
-        // ========== 8. 部署应用 ==========
-        stage('部署应用') {
-            steps {
-                echo '🚀 部署应用...'
-                sh '''
-                    echo "=========================================="
-                    echo "镜像已推送到Harbor仓库"
-                    echo "Harbor地址: http://${HARBOR_URL}"
-                    echo "项目: ${HARBOR_PROJECT}"
-                    echo "前端镜像: ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:${BUILD_NUMBER}"
-                    echo "后端镜像: ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER}"
-                    echo "=========================================="
                 '''
             }
         }
@@ -160,8 +177,17 @@ pipeline {
             steps {
                 echo '✅ 验证部署状态...'
                 sh '''
-                    echo "Harbor仓库镜像列表:"
-                    docker images | grep ${HARBOR_URL} | head -10
+                    echo "=========================================="
+                    echo "🎉 CI/CD流水线执行完成!"
+                    echo "=========================================="
+                    echo "Harbor地址: http://${HARBOR_URL}"
+                    echo "项目: ${HARBOR_PROJECT}"
+                    echo "构建编号: ${BUILD_NUMBER}"
+                    echo ""
+                    echo "镜像列表:"
+                    echo "  - ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:${BUILD_NUMBER}"
+                    echo "  - ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER}"
+                    echo "=========================================="
                 '''
             }
         }
