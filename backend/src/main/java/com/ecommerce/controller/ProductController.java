@@ -17,10 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-
-/**
- * 商品控制器 - RESTful API
- */
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
@@ -29,10 +25,6 @@ import java.util.Map;
 public class ProductController {
 
     private final ProductService productService;
-
-    /**
-     * 获取商品列表（分页）
-     */
     @GetMapping
     @Operation(summary = "获取商品列表", description = "支持分页、搜索和分类筛选")
     public ResponseEntity<Page<Product>> getProducts(
@@ -52,9 +44,6 @@ public class ProductController {
         return ResponseEntity.ok(products);
     }
 
-    /**
-     * 获取单个商品详情
-     */
     @GetMapping("/{id}")
     @Operation(summary = "获取商品详情", description = "根据ID获取商品详细信息")
     public ResponseEntity<Product> getProduct(
@@ -64,9 +53,6 @@ public class ProductController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * 创建商品
-     */
     @PostMapping
     @Operation(summary = "创建商品", description = "创建新商品")
     public ResponseEntity<Product> createProduct(
@@ -75,9 +61,6 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    /**
-     * 更新商品
-     */
     @PutMapping("/{id}")
     @Operation(summary = "更新商品", description = "根据ID更新商品信息")
     public ResponseEntity<Product> updateProduct(
@@ -88,9 +71,6 @@ public class ProductController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * 删除商品
-     */
     @DeleteMapping("/{id}")
     @Operation(summary = "删除商品", description = "根据ID删除商品")
     public ResponseEntity<Void> deleteProduct(
@@ -101,9 +81,6 @@ public class ProductController {
         return ResponseEntity.notFound().build();
     }
 
-    /**
-     * 搜索商品
-     */
     @GetMapping("/search")
     @Operation(summary = "搜索商品", description = "根据关键词搜索商品")
     public ResponseEntity<Page<Product>> searchProducts(
@@ -114,9 +91,6 @@ public class ProductController {
         return ResponseEntity.ok(productService.searchProducts(keyword, pageable));
     }
 
-    /**
-     * 根据分类获取商品
-     */
     @GetMapping("/category/{category}")
     @Operation(summary = "按分类获取商品", description = "根据分类获取商品列表")
     public ResponseEntity<Page<Product>> getProductsByCategory(
@@ -127,19 +101,12 @@ public class ProductController {
         return ResponseEntity.ok(productService.getProductsByCategory(category, pageable));
     }
 
-    /**
-     * 获取库存不足商品
-     */
     @GetMapping("/low-stock")
     @Operation(summary = "获取库存不足商品", description = "获取库存低于阈值的商品")
     public ResponseEntity<List<Product>> getLowStockProducts(
             @Parameter(description = "库存阈值") @RequestParam(defaultValue = "10") Integer threshold) {
         return ResponseEntity.ok(productService.getLowStockProducts(threshold));
     }
-
-    /**
-     * 获取分类统计
-     */
     @GetMapping("/statistics/category")
     @Operation(summary = "获取分类统计", description = "统计各分类商品数量")
     public ResponseEntity<List<Object[]>> getCategoryStatistics() {

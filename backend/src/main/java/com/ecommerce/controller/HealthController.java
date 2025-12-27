@@ -11,9 +11,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 健康检查控制器
- */
 @RestController
 @RequestMapping("/api")
 @Tag(name = "健康检查", description = "服务健康状态接口")

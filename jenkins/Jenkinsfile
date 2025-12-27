@@ -50,7 +50,15 @@ pipeline {
         stage('单元测试') {
             steps {
                 echo '🧪 运行单元测试...'
-                sh 'echo "✓ 单元测试完成"'
+                sh '''
+                    docker run --rm \
+                        -v ${SOURCE_DIR}/backend:/app \
+                        -v maven-repo:/root/.m2 \
+                        -w /app \
+                        maven:3.9-eclipse-temurin-21 \
+                        mvn test -B
+                    echo "✓ 单元测试完成"
+                '''
             }
         }
 
@@ -58,7 +66,16 @@ pipeline {
         stage('构建应用') {
             steps {
                 echo '🔨 构建应用程序...'
-                sh 'echo "✓ 应用构建完成"'
+                sh '''
+                    docker run --rm \
+                        -v ${SOURCE_DIR}/backend:/app \
+                        -v maven-repo:/root/.m2 \
+                        -w /app \
+                        maven:3.9-eclipse-temurin-21 \
+                        mvn clean package -DskipTests -B
+                    echo "✓ 应用构建完成"
+                    ls -lh ${SOURCE_DIR}/backend/target/*.jar
+                '''
             }
         }
 

@@ -12,9 +12,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 全局异常处理器
- */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {

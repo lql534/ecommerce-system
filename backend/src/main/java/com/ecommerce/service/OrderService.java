@@ -27,9 +27,6 @@ public class OrderService {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
 
-    /**
-     * 从购物车创建订单
-     */
     @Transactional
     public Order createOrderFromCart(Long userId, String shippingAddress, String remark) {
         List<CartItem> cartItems = cartItemRepository.findByUserId(userId);
