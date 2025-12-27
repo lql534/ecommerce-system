@@ -170,7 +170,58 @@ pipeline {
             }
         }
 
-        // ========== 9. 部署验证 ==========
+        // ========== 9. 自动部署 ==========
+        stage('自动部署') {
+            steps {
+                echo '🚀 自动部署应用...'
+                sh '''
+                    echo "停止旧容器..."
+                    docker stop ecommerce-frontend ecommerce-backend ecommerce-mysql 2>/dev/null || true
+                    docker rm ecommerce-frontend ecommerce-backend ecommerce-mysql 2>/dev/null || true
+                    
+                    echo "创建网络..."
+                    docker network create ecommerce-net 2>/dev/null || true
+                    
+                    echo "启动MySQL数据库..."
+                    docker run -d --name ecommerce-mysql \
+                        --network ecommerce-net \
+                        -e MYSQL_ROOT_PASSWORD=root123456 \
+                        -e MYSQL_DATABASE=ecommerce \
+                        -e MYSQL_USER=ecommerce_user \
+                        -e MYSQL_PASSWORD=ecommerce123 \
+                        -p 3306:3306 \
+                        -v mysql-data:/var/lib/mysql \
+                        -v /root/ecommerce-system/database/init.sql:/docker-entrypoint-initdb.d/init.sql \
+                        mysql:8.0
+                    
+                    echo "等待数据库启动..."
+                    sleep 30
+                    
+                    echo "启动后端服务..."
+                    docker run -d --name ecommerce-backend \
+                        --network ecommerce-net \
+                        -e SPRING_PROFILES_ACTIVE=prod \
+                        -e SPRING_DATASOURCE_URL=jdbc:mysql://ecommerce-mysql:3306/ecommerce?useSSL=false\&allowPublicKeyRetrieval=true\&serverTimezone=Asia/Shanghai \
+                        -e SPRING_DATASOURCE_USERNAME=ecommerce_user \
+                        -e SPRING_DATASOURCE_PASSWORD=ecommerce123 \
+                        -p 8080:8080 \
+                        ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER}
+                    
+                    echo "启动前端服务..."
+                    docker run -d --name ecommerce-frontend \
+                        --network ecommerce-net \
+                        -p 80:80 \
+                        ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:${BUILD_NUMBER}
+                    
+                    echo "等待服务启动..."
+                    sleep 10
+                    
+                    echo "✓ 部署完成"
+                '''
+            }
+        }
+
+        // ========== 10. 部署验证 ==========
         stage('部署验证') {
             steps {
                 echo '✅ 验证部署状态...'
@@ -178,13 +229,16 @@ pipeline {
                     echo "=========================================="
                     echo "🎉 CI/CD流水线执行完成!"
                     echo "=========================================="
-                    echo "Harbor地址: http://${HARBOR_URL}"
-                    echo "项目: ${HARBOR_PROJECT}"
-                    echo "构建编号: ${BUILD_NUMBER}"
                     echo ""
-                    echo "镜像列表:"
-                    echo "  - ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:${BUILD_NUMBER}"
-                    echo "  - ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER}"
+                    echo "运行中的容器:"
+                    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep ecommerce || true
+                    echo ""
+                    echo "访问地址:"
+                    echo "  - 前端: http://192.168.19.129:80"
+                    echo "  - 后端API: http://192.168.19.129:8080/api"
+                    echo "  - Harbor: http://192.168.19.129:8083"
+                    echo ""
+                    echo "镜像版本: ${BUILD_NUMBER}"
                     echo "=========================================="
                 '''
             }
