@@ -175,9 +175,12 @@ pipeline {
             steps {
                 echo '🚀 自动部署应用...'
                 sh '''
-                    echo "停止旧的前后端容器..."
-                    docker stop ecommerce-frontend ecommerce-backend 2>/dev/null || true
-                    docker rm ecommerce-frontend ecommerce-backend 2>/dev/null || true
+                    echo "强制停止并删除旧容器..."
+                    docker rm -f ecommerce-frontend ecommerce-backend 2>/dev/null || true
+                    
+                    echo "清理同名容器..."
+                    docker ps -a --filter "name=ecommerce-frontend" -q | xargs -r docker rm -f 2>/dev/null || true
+                    docker ps -a --filter "name=ecommerce-backend" -q | xargs -r docker rm -f 2>/dev/null || true
                     
                     echo "创建网络..."
                     docker network create ecommerce-net 2>/dev/null || true
@@ -212,6 +215,9 @@ pipeline {
                         -p 8080:8080 \
                         ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER}
                     
+                    echo "等待后端启动..."
+                    sleep 15
+                    
                     echo "启动前端服务..."
                     docker run -d --name ecommerce-frontend \
                         --network ecommerce-net \
@@ -219,7 +225,10 @@ pipeline {
                         ${HARBOR_URL}/${HARBOR_PROJECT}/frontend:${BUILD_NUMBER}
                     
                     echo "等待服务启动..."
-                    sleep 10
+                    sleep 5
+                    
+                    echo "验证容器状态..."
+                    docker ps | grep ecommerce
                     
                     echo "✓ 部署完成"
                 '''
@@ -237,6 +246,14 @@ pipeline {
                     echo ""
                     echo "运行中的容器:"
                     docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep ecommerce || true
+                    echo ""
+                    echo "测试后端API..."
+                    curl -s http://localhost:8080/api/products | head -c 200 || echo "后端API测试"
+                    echo ""
+                    echo ""
+                    echo "测试前端..."
+                    curl -s -o /dev/null -w "前端HTTP状态: %{http_code}" http://localhost:80 || echo "前端测试"
+                    echo ""
                     echo ""
                     echo "访问地址:"
                     echo "  - 前端: http://192.168.19.129:80"
