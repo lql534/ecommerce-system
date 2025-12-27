@@ -175,27 +175,32 @@ pipeline {
             steps {
                 echo '🚀 自动部署应用...'
                 sh '''
-                    echo "停止旧容器..."
-                    docker stop ecommerce-frontend ecommerce-backend ecommerce-mysql 2>/dev/null || true
-                    docker rm ecommerce-frontend ecommerce-backend ecommerce-mysql 2>/dev/null || true
+                    echo "停止旧的前后端容器..."
+                    docker stop ecommerce-frontend ecommerce-backend 2>/dev/null || true
+                    docker rm ecommerce-frontend ecommerce-backend 2>/dev/null || true
                     
                     echo "创建网络..."
                     docker network create ecommerce-net 2>/dev/null || true
                     
-                    echo "启动MySQL数据库..."
-                    docker run -d --name ecommerce-mysql \
-                        --network ecommerce-net \
-                        -e MYSQL_ROOT_PASSWORD=root123456 \
-                        -e MYSQL_DATABASE=ecommerce \
-                        -e MYSQL_USER=ecommerce_user \
-                        -e MYSQL_PASSWORD=ecommerce123 \
-                        -p 3306:3306 \
-                        -v mysql-data:/var/lib/mysql \
-                        -v /root/ecommerce-system/database/init.sql:/docker-entrypoint-initdb.d/init.sql \
-                        mysql:8.0
-                    
-                    echo "等待数据库启动..."
-                    sleep 30
+                    echo "检查数据库是否运行..."
+                    if ! docker ps | grep -q ecommerce-mysql; then
+                        echo "启动MySQL数据库..."
+                        docker run -d --name ecommerce-mysql \
+                            --network ecommerce-net \
+                            -e MYSQL_ROOT_PASSWORD=root123456 \
+                            -e MYSQL_DATABASE=ecommerce \
+                            -e MYSQL_USER=ecommerce_user \
+                            -e MYSQL_PASSWORD=ecommerce123 \
+                            -p 3306:3306 \
+                            -v mysql-data:/var/lib/mysql \
+                            -v /root/ecommerce-system/database/init.sql:/docker-entrypoint-initdb.d/init.sql \
+                            mysql:8.0
+                        echo "等待数据库启动..."
+                        sleep 30
+                    else
+                        echo "数据库已在运行，连接到网络..."
+                        docker network connect ecommerce-net ecommerce-mysql 2>/dev/null || true
+                    fi
                     
                     echo "启动后端服务..."
                     docker run -d --name ecommerce-backend \
@@ -249,15 +254,15 @@ pipeline {
         success {
             echo '''
             ╔════════════════════════════════════════╗
-            ║     ✅ CI/CD 流水线执行成功!           ║
-            ║     镜像已推送到Harbor仓库             ║
+            ║     ✅ CI/CD 流水线执行成功!             ║
+            ║     镜像已推送到Harbor仓库                ║
             ╚════════════════════════════════════════╝
             '''
         }
         failure {
             echo '''
             ╔════════════════════════════════════════╗
-            ║     ❌ CI/CD 流水线执行失败!           ║
+            ║     ❌ CI/CD 流水线执行失败!              ║
             ╚════════════════════════════════════════╝
             '''
         }
