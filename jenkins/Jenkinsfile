@@ -188,7 +188,7 @@ pipeline {
                             -v /root/ecommerce-system/database/init.sql:/docker-entrypoint-initdb.d/init.sql \
                             mysql:8.0
                         echo "等待数据库启动..."
-                        sleep 30
+                        sleep 5
                     else
                         echo "数据库已在运行，连接到网络..."
                         docker network connect ecommerce-net ecommerce-mysql 2>/dev/null || true
@@ -206,7 +206,7 @@ pipeline {
                         ${HARBOR_URL}/${HARBOR_PROJECT}/backend:${BUILD_NUMBER}
                     
                     echo "等待后端启动..."
-                    sleep 15
+                    sleep 5
                     
                     echo "启动前端服务..."
                     docker run -d --name ecommerce-frontend \
