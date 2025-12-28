@@ -7,7 +7,7 @@ pipeline {
     agent any
 
     environment {
-        HARBOR_URL = '192.168.19.129:8083'
+        HARBOR_URL = '192.168.19.130:8083'
         HARBOR_PROJECT = 'ecommerce'
         HARBOR_USER = 'admin'
         HARBOR_PASSWORD = 'Harbor12345'
@@ -276,9 +276,9 @@ pipeline {
                     
                     echo ""
                     echo "访问地址:"
-                    echo "  - 前端: http://192.168.19.129:80"
-                    echo "  - 后端API: http://192.168.19.129:8080/api"
-                    echo "  - Harbor: http://192.168.19.129:8083"
+                    echo "  - 前端: http://192.168.19.130:80"
+                    echo "  - 后端API: http://192.168.19.130:8080/api"
+                    echo "  - Harbor: http://192.168.19.130:8083"
                     echo ""
                     echo "镜像版本: ${BUILD_NUMBER}"
                     echo "=========================================="
